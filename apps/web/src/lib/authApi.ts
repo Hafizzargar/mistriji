@@ -4,7 +4,7 @@
  * running on port 3002.
  */
 
-const AUTH_API_BASE = 'http://localhost:3002'
+const AUTH_API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3002'
 
 /**
  * Send OTP to an email or phone number.
