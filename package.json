@@ -1,0 +1,19 @@
+{
+  "name": "mistriji",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MistriJi — Jammu Labour Marketplace",
+  "scripts": {
+    "dev:admin": "pnpm --filter admin dev",
+    "dev:web": "pnpm --filter web dev",
+    "dev:api": "pnpm --filter api dev",
+    "build:admin": "pnpm --filter admin build",
+    "build:web": "pnpm --filter web build"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  },
+  "dependencies": {
+    "postgres": "^3.4.9"
+  }
+}

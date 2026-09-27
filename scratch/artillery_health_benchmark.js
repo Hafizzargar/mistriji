@@ -1,0 +1,82 @@
+const http = require('http');
+
+async function sendHealthRequest() {
+  const start = Date.now();
+  return new Promise((resolve) => {
+    const req = http.request({
+      hostname: 'localhost',
+      port: 3002,
+      path: '/api/health',
+      method: 'GET',
+      timeout: 5000
+    }, (res) => {
+      let data = '';
+      res.on('data', chunk => { data += chunk; });
+      res.on('end', () => {
+        resolve({ status: res.statusCode, duration: Date.now() - start });
+      });
+    });
+
+    req.on('error', (err) => {
+      resolve({ status: 0, duration: Date.now() - start, error: err.message });
+    });
+
+    req.end();
+  });
+}
+
+async function runHealthBenchmark() {
+  console.log('=== High-Concurrency Benchmark on GET /api/health ===');
+  console.log('50 concurrent workers x 10 iterations = 500 total requests\n');
+
+  const allResults = [];
+  const startTotal = Date.now();
+
+  for (let batch = 1; batch <= 10; batch++) {
+    const batchStart = Date.now();
+    const promises = [];
+    for (let i = 0; i < 50; i++) {
+      promises.push(sendHealthRequest());
+    }
+    const batchResults = await Promise.all(promises);
+    allResults.push(...batchResults);
+    const batchDuration = Date.now() - batchStart;
+    console.log(`Batch ${batch}/10: 50 requests in ${batchDuration}ms`);
+  }
+
+  const totalTime = Date.now() - startTotal;
+  
+  const statusCounts = {};
+  const latencies = [];
+  allResults.forEach(r => {
+    statusCounts[r.status] = (statusCounts[r.status] || 0) + 1;
+    latencies.push(r.duration);
+  });
+
+  latencies.sort((a, b) => a - b);
+  const p50 = latencies[Math.floor(latencies.length * 0.50)];
+  const p95 = latencies[Math.floor(latencies.length * 0.95)];
+  const p99 = latencies[Math.floor(latencies.length * 0.99)];
+  const min = latencies[0];
+  const max = latencies[latencies.length - 1];
+  const avg = Math.round(latencies.reduce((a, b) => a + b, 0) / latencies.length);
+
+  console.log('\n================ BENCHMARK RESULTS ================');
+  console.log(`Total Requests:    ${allResults.length}`);
+  console.log(`Total Elapsed:     ${(totalTime / 1000).toFixed(2)}s`);
+  console.log(`Throughput (RPS):  ${((allResults.length / totalTime) * 1000).toFixed(1)} req/sec`);
+  console.log('\n--- HTTP Status Breakdown ---');
+  Object.entries(statusCounts).forEach(([status, count]) => {
+    console.log(`  HTTP ${status}: ${count} (${((count/allResults.length)*100).toFixed(1)}%)`);
+  });
+  console.log('\n--- Latency Percentiles ---');
+  console.log(`  Min:  ${min}ms`);
+  console.log(`  Avg:  ${avg}ms`);
+  console.log(`  p50:  ${p50}ms`);
+  console.log(`  p95:  ${p95}ms`);
+  console.log(`  p99:  ${p99}ms`);
+  console.log(`  Max:  ${max}ms`);
+  console.log('====================================================\n');
+}
+
+runHealthBenchmark();
