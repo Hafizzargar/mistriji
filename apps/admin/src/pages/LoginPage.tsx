@@ -5,6 +5,7 @@ import { sendOTP, verifyOTP, updatePinWithOTP, verifyPin } from '@/lib/authApi'
 import { useToast } from '@/contexts/ToastContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { Eye, EyeOff, Phone, Lock, AlertCircle, Settings, Mail, KeyRound } from 'lucide-react'
+import { logAdminAction } from '@/lib/auditLogger'
 
 export function LoginPage() {
   const navigate = useNavigate()
@@ -163,6 +164,14 @@ export function LoginPage() {
 
     // Set session in React state via AuthContext
     setSession(result.session.access_token, result.session.user)
+
+    logAdminAction({
+      actor: result.session.user,
+      action: 'Admin Login',
+      targetType: 'system',
+      targetId: 'auth',
+      details: `${result.session.user.role === 'super_admin' ? 'Super Administrator' : 'Administrator'} logged in via ${authMethod.toUpperCase()}`,
+    }).catch(err => console.error('Failed to log login action', err))
 
     toast.success('Welcome back to MistriJi Admin Panel!')
     setLoading(false)

@@ -559,9 +559,14 @@ export function WorkersPage() {
       sortable: false,
       render: w => {
         return (
-          <button className="btn btn-sm btn-primary" onClick={() => { setSearchParams({ view: w.id }); window.scrollTo({ top: 0, behavior: 'smooth' }); }} title="View & Edit Worker Details">
-            <Eye size={14} /> View Details
-          </button>
+          <div style={{ display: 'flex', gap: '0.25rem' }}>
+            <button 
+              className="btn btn-xs btn-primary" 
+              onClick={() => { setSearchParams({ view: w.id }); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+            >
+              View Details
+            </button>
+          </div>
         )
       }
     }
