@@ -300,20 +300,19 @@ export function WorkerAuthModal({
     if (userStatus?.isSuspended) { toast.error('Account is suspended. Contact support.'); return }
 
     setSending(true)
+    const identifier = authMethod === 'phone' ? phone.replace(/\D/g, '').slice(-10) : email
+    const result = await sendOTP(identifier, authMethod)
     
-    // --- BYPASS OTP LOGIC ---
-    setTimeout(async () => {
+    if (!result.success) {
+      toast.error(result.error || 'Failed to send OTP')
       setSending(false)
-      if (activeTab === 'login') {
-        toast.success('✨ Secure Login Successful')
-        await handleFinalSubmit()
-      } else {
-        toast.success('✨ Number Verified')
-        setAuthStep('details')
-      }
-    }, 400)
-    return
-    // -------------------------
+      return
+    }
+
+    toast.success(`OTP sent to ${authMethod === 'phone' ? '+91 ' + identifier : identifier}!`)
+    setAuthStep('otp')
+    setResendCountdown(60)
+    setSending(false)
   }
 
   async function handleVerifyOtp(e: React.FormEvent) {
