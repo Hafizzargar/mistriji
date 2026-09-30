@@ -4,6 +4,8 @@
   "private": true,
   "description": "MistriJi — Jammu Labour Marketplace",
   "scripts": {
+    "dev": "pnpm --parallel dev",
+    "dev:all": "pnpm --parallel dev",
     "dev:admin": "pnpm --filter admin dev",
     "dev:web": "pnpm --filter web dev",
     "dev:api": "pnpm --filter api dev",

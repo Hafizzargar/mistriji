@@ -182,13 +182,7 @@ export function CustomerLoginModal() {
     setSending(false)
 
     if (!result.success) {
-      if (result.error?.includes('unreachable')) {
-        toast.info('⚠️ Auth server offline — using dev-mode OTP: 111222')
-        setStep('otp')
-        setResendCountdown(60)
-        return
-      }
-      toast.error(result.error || 'Failed to send OTP.')
+      toast.error(result.error || 'Failed to send OTP. Please check your connection.')
       return
     }
 
@@ -203,17 +197,12 @@ export function CustomerLoginModal() {
     if (otp.length < 6) { toast.error('Please enter the 6-digit OTP.'); return }
     setLoading(true)
 
-    // Dev-mode fallback: accept 111222 without server verification
-    const isDevOtp = otp === '111222'
-
-    if (!isDevOtp) {
-      const identifier = authMethod === 'phone' ? phone : email
-      const verifyResult = await verifyOTPApi(identifier, otp, authMethod)
-      if (!verifyResult.success) {
-        setLoading(false)
-        toast.error(verifyResult.error || 'Invalid OTP. Please try again.')
-        return
-      }
+    const identifier = authMethod === 'phone' ? phone : email
+    const verifyResult = await verifyOTPApi(identifier, otp, authMethod)
+    if (!verifyResult.success) {
+      setLoading(false)
+      toast.error(verifyResult.error || 'Invalid OTP. Please try again.')
+      return
     }
 
     // OTP verified — log the user in

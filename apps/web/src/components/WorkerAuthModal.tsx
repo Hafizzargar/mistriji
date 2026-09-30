@@ -320,15 +320,12 @@ export function WorkerAuthModal({
     if (otp.length < 6) { toast.error('Please enter the 6-digit OTP.'); return }
     setSubmitting(true)
     
-    const isDevOtp = otp === '111222'
-    if (!isDevOtp) {
-      const identifier = authMethod === 'phone' ? phone : email
-      const verifyResult = await verifyOTPApi(identifier, otp, authMethod)
-      if (!verifyResult.success) {
-        setSubmitting(false)
-        toast.error(verifyResult.error || 'Invalid OTP. Please try again.')
-        return
-      }
+    const identifier = authMethod === 'phone' ? phone : email
+    const verifyResult = await verifyOTPApi(identifier, otp, authMethod)
+    if (!verifyResult.success) {
+      setSubmitting(false)
+      toast.error(verifyResult.error || 'Invalid OTP. Please try again.')
+      return
     }
     
     // OTP verified
