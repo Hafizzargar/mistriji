@@ -274,6 +274,15 @@ export function WorkerAuthModal({
 
   if (!isOpen) return null
 
+  function resetAuthFields(newMethod?: 'phone' | 'email') {
+    setPhone('')
+    setEmail('')
+    setOtp('')
+    setUserStatus(null)
+    setAuthStep('phone')
+    if (newMethod) setAuthMethod(newMethod)
+  }
+
   function handleClose() {
     setPhone('')
     setEmail('')
@@ -569,7 +578,7 @@ export function WorkerAuthModal({
         }}>
           <button
             type="button"
-            onClick={() => { setActiveTab('login'); setAuthStep('phone'); }}
+            onClick={() => { setActiveTab('login'); resetAuthFields(); }}
             style={{
               border: 'none',
               padding: '0.5rem',
@@ -592,7 +601,7 @@ export function WorkerAuthModal({
 
           <button
             type="button"
-            onClick={() => { setActiveTab('register'); setAuthStep('phone'); }}
+            onClick={() => { setActiveTab('register'); resetAuthFields(); }}
             style={{
               border: 'none',
               padding: '0.5rem',
@@ -658,7 +667,7 @@ export function WorkerAuthModal({
                 <button
                   key={method}
                   type="button"
-                  onClick={() => setAuthMethod(method)}
+                  onClick={() => resetAuthFields(method)}
                   style={{
                     flex: 1, padding: '0.5rem',
                     borderRadius: '0.625rem',
@@ -820,7 +829,7 @@ export function WorkerAuthModal({
                 <button
                   key={method}
                   type="button"
-                  onClick={() => setAuthMethod(method)}
+                  onClick={() => resetAuthFields(method)}
                   style={{
                     flex: 1, padding: '0.5rem',
                     borderRadius: '0.625rem',

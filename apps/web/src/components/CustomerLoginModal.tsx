@@ -147,6 +147,15 @@ export function CustomerLoginModal() {
 
   if (!showLoginModal) return null
 
+  function resetAuthFields(newMethod?: 'phone' | 'email') {
+    setPhone('')
+    setEmail('')
+    setOtp('')
+    setUserStatus(null)
+    setStep('phone')
+    if (newMethod) setAuthMethod(newMethod)
+  }
+
   function handleClose() {
     setPhone(''); setEmail(''); setName(''); setOtp(''); setStep('phone')
     setUserStatus(null); setActiveTab('login'); setAuthMethod('phone')
@@ -380,7 +389,7 @@ export function CustomerLoginModal() {
                     <button
                       key={method}
                       type="button"
-                      onClick={() => setAuthMethod(method)}
+                      onClick={() => resetAuthFields(method)}
                       style={{
                         flex: 1, padding: '0.5rem',
                         borderRadius: '0.625rem',
