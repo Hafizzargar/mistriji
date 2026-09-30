@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { useToast } from '@/contexts/ToastContext'
 import { useCustomerAuth } from '@/contexts/CustomerAuthContext'
 import { useNavigate } from 'react-router-dom'
+import { notifyAdmin, getAdminUrl } from '@/api'
 import { SupportTicketModal } from '@/components/SupportTicketModal'
 import {
   HardHat, Inbox, Briefcase, History, CheckCircle, XCircle,
@@ -374,18 +375,10 @@ export function WorkerDashboardPage() {
          // Customer relies on in-app bell notification
          // Admin Email Notification
          if (newStatus === 'completed' || newStatus === 'cancelled') {
-           const host = window.location.hostname
-           const adminPort = '3001'
-           const adminUrl = `${window.location.protocol}//${host}:${adminPort}/jobs`
-
-           fetch('http://localhost:3002/api/notify/admin', {
-             method: 'POST',
-             headers: { 'Content-Type': 'application/json' },
-             body: JSON.stringify({ 
-               message: `MistriJi: Job ${jobId.substring(0,6)} was marked as ${newStatus.toUpperCase()} by ${customer?.name || 'Worker'}.`,
-               link: adminUrl
-             })
-           }).catch(() => {})
+           notifyAdmin({
+             message: `MistriJi: Job ${jobId.substring(0,6)} was marked as ${newStatus.toUpperCase()} by ${customer?.name || 'Worker'}.`,
+             link: getAdminUrl('/jobs')
+           })
            
            // Notify Admin via in-app notifications
            try {

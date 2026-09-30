@@ -1672,3 +1672,10 @@ h1, h2, h3, h4, h5, h6 {
     flex-direction: column;
   }
 }
+
+/* Hide Customer Login modal left panel on mobile screens (< 768px) so the login form displays full width */
+@media (max-width: 768px) {
+  .customer-modal-left-panel {
+    display: none !important;
+  }
+}

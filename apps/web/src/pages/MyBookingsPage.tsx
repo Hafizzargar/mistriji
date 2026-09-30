@@ -3,6 +3,7 @@ import { Navigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { useToast } from '@/contexts/ToastContext'
 import { useCustomerAuth } from '@/contexts/CustomerAuthContext'
+import { createPaymentOrder, verifyPayment, openRazorpayCheckout } from '@/api'
 import { RefreshCw, LogIn, Phone, Clock, CheckCircle, ArrowLeft, ArrowRight, Plus } from 'lucide-react'
 
 interface Skill { name: string; icon: string }
@@ -241,73 +242,50 @@ export function MyBookingsPage() {
         return
       }
 
-      // 1. Create order on our backend
-      const res = await fetch('http://localhost:3002/api/payments/create-order', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          amount: job.price * 100, // convert ₹ to paise
-          currency: 'INR',
-          userId: customer.id,
-          jobId: job.id,
-          workerId: job.worker ? null : null, // (We don't easily have worker_id here, but we can pass it if we select it)
-        })
+      // 1. Create order on backend
+      const orderResult = await createPaymentOrder({
+        amount: job.price * 100, // ₹ to paise
+        currency: 'INR',
+        userId: customer.id,
+        jobId: job.id,
       })
 
-      const orderData = await res.json()
-      if (!orderData.success) {
-        throw new Error(orderData.error || 'Failed to create order')
+      if (!orderResult.success || !orderResult.order_id) {
+        throw new Error(orderResult.error || 'Failed to create order')
       }
 
       // 2. Open Razorpay Checkout
-      const options = {
-        key: import.meta.env.VITE_RAZORPAY_KEY_ID || 'dummy_key', 
-        amount: orderData.amount,
-        currency: orderData.currency,
-        name: 'MistriJi',
+      openRazorpayCheckout({
+        order_id:    orderResult.order_id,
+        amount:      orderResult.amount!,
+        currency:    orderResult.currency!,
+        name:        'MistriJi',
         description: `Payment for ${job.skills?.name || 'Service'}`,
-        order_id: orderData.order_id,
-        handler: async function (response: any) {
-          // 3. Verify payment on our backend
-          try {
-            const verifyRes = await fetch('http://localhost:3002/api/payments/verify', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                razorpay_order_id: response.razorpay_order_id,
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_signature: response.razorpay_signature,
-                userEmail: customer.email || null,
-                userName: customer.name || null
-              })
-            })
-            const verifyData = await verifyRes.json()
-            if (verifyData.success) {
-              toast.success('Payment successful!')
-              fetchBookingsByUserId(customer.id) // refresh
-            } else {
-              toast.error(verifyData.error || 'Payment verification failed.')
-            }
-          } catch (err: any) {
-            toast.error('Payment verification failed.')
-          }
-        },
         prefill: {
-          name: customer.name || '',
-          email: customer.email || '',
+          name:    customer.name || '',
+          email:   customer.email || '',
           contact: customer.phone || ''
         },
-        theme: {
-          color: '#4f46e5'
-        }
-      }
-
-      // @ts-ignore
-      const rzp1 = new window.Razorpay(options)
-      rzp1.on('payment.failed', function (response: any) {
-        toast.error('Payment failed: ' + response.error.description)
+        onSuccess: async (response) => {
+          // 3. Verify payment signature on backend
+          const verifyResult = await verifyPayment({
+            razorpay_order_id:   response.razorpay_order_id,
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_signature:  response.razorpay_signature,
+            userEmail: customer.email || null,
+            userName:  customer.name  || null,
+          })
+          if (verifyResult.success) {
+            toast.success('Payment successful!')
+            fetchBookingsByUserId(customer.id)
+          } else {
+            toast.error(verifyResult.error || 'Payment verification failed.')
+          }
+        },
+        onFailure: (description) => {
+          toast.error('Payment failed: ' + description)
+        },
       })
-      rzp1.open()
 
     } catch (err: any) {
       toast.error(err.message || 'Payment initiation failed')

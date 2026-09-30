@@ -242,7 +242,14 @@ export function LoginPage() {
               {(['phone', 'email'] as const).map(method => (
                 <button
                   key={method} type="button"
-                  onClick={() => { setAuthMethod(method); setError('') }}
+                  onClick={() => { 
+                    setAuthMethod(method); 
+                    setError('');
+                    setPhone('');
+                    setEmail('');
+                    setOtp(['', '', '', '', '', '']);
+                    setPin('');
+                  }}
                   style={{
                     padding: '0.625rem', borderRadius: '0.375rem', border: 'none',
                     background: authMethod === method ? '#fff' : 'transparent',
@@ -278,15 +285,15 @@ export function LoginPage() {
             ) : (
               <div className="input-wrapper">
                 <label className="input-label">Email Address <span className="required">*</span></label>
-                <div style={styles.inputWithPrefix}>
-                  <span style={styles.prefix}><Mail size={16} /></span>
+                <div style={styles.inputWithIcon}>
+                  <Mail size={16} style={styles.inputIcon} />
                   <input
                     type="email"
                     className="input"
                     placeholder="admin@mistriji.in"
                     value={email}
                     onChange={e => setEmail(e.target.value)}
-                    style={{ borderLeft: 'none', borderRadius: '0 0.5rem 0.5rem 0', width: '100%' }}
+                    style={{ paddingLeft: '2.5rem', width: '100%', height: 42, borderRadius: '0.5rem', border: '1.5px solid #d1d5db', fontSize: '1rem' }}
                   />
                 </div>
               </div>

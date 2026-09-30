@@ -294,7 +294,14 @@ app.post('/api/otp/send', otpRateLimitMiddleware, async (req, res) => {
 app.post('/api/otp/verify', otpRateLimitMiddleware, async (req, res) => {
   const { identifier, code, type } = req.body
 
+  console.log('\n🔐 [OTP VERIFY] ─────────────────────────────────')
+  console.log(`   Identifier : ${identifier}`)
+  console.log(`   Code       : ${code}`)
+  console.log(`   Type       : ${type}`)
+  console.log(`   Admin Portal: ${req.headers['x-admin-portal'] === 'true' ? 'YES' : 'NO'}`)
+
   if (!identifier || !code) {
+    console.log('   ❌ Missing identifier or code')
     return res.status(400).json({ error: 'Missing identifier or code.' })
   }
 
@@ -302,10 +309,13 @@ app.post('/api/otp/verify', otpRateLimitMiddleware, async (req, res) => {
   // If it's an admin portal login, keep the OTP alive for the next step (PIN verification)
   const isAdminPortal = req.headers['x-admin-portal'] === 'true'
   const { valid, error } = verifyOTP(identifier, code, isAdminPortal)
+
   if (!valid) {
+    console.log(`   ❌ OTP invalid: ${error}`)
     return res.status(401).json({ error })
   }
-  
+
+  console.log('   ✅ OTP verified OK')
   // NOTE: We don't issue the JWT here for the admin portal anymore.
   // The frontend must call /api/otp/verify-pin in the next step.
   return res.json({ success: true, verified: true, identifier, type: type || 'phone' })
@@ -709,7 +719,7 @@ app.use(async (err, req, res, next) => {
 })
 
 // ─── Start Server ─────────────────────────────────────────
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log('')
   console.log('  ╔══════════════════════════════════════════════╗')
   console.log(`  ║  🔧 MistriJi Auth API running on port ${PORT}   ║`)
@@ -718,4 +728,21 @@ app.listen(PORT, () => {
   console.log(`  ║  SMS:    ${process.env.FAST2SMS_API_KEY ? '✅ Fast2SMS Smart OTP ready' : '❌ Not configured'}`)
   console.log('  ╚══════════════════════════════════════════════╝')
   console.log('')
+})
+
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`\n❌ Port ${PORT} is already in use. Killing old process and retrying in 1s...\n`)
+    const { execSync } = require('child_process')
+    try {
+      if (process.platform === 'win32') {
+        execSync(`FOR /F "tokens=5" %P IN ('netstat -ano ^| findstr :${PORT}') DO TaskKill /PID %P /F`, { shell: 'cmd.exe' })
+      } else {
+        execSync(`lsof -ti tcp:${PORT} | xargs kill -9`)
+      }
+    } catch (_) {}
+    setTimeout(() => server.listen(PORT), 1000)
+  } else {
+    throw err
+  }
 })

@@ -86,6 +86,8 @@ export function CustomerLoginModal() {
   const [checking, setChecking] = useState(false)
   const [resendCountdown, setResendCountdown] = useState(60)
   const [userStatus, setUserStatus] = useState<CheckUserStatusResult | null>(null)
+  // Guard: prevent double OTP verify (React 18 StrictMode runs effects twice in dev)
+  const verifyingRef = useRef(false)
 
   useEffect(() => {
     if (!showLoginModal) {
@@ -140,7 +142,7 @@ export function CustomerLoginModal() {
 
   // Auto-verify OTP when 6 digits are entered
   useEffect(() => {
-    if (step === 'otp' && otp.length === 6 && !loading) {
+    if (step === 'otp' && otp.length === 6 && !loading && !verifyingRef.current) {
       handleVerifyOtp()
     }
   }, [otp])
@@ -191,7 +193,7 @@ export function CustomerLoginModal() {
     setSending(false)
 
     if (!result.success) {
-      toast.error(result.error || 'Failed to send OTP. Please check your connection.')
+      toast.error(result.error || 'Error')
       return
     }
 
@@ -204,20 +206,29 @@ export function CustomerLoginModal() {
   async function handleVerifyOtp(e?: React.FormEvent) {
     if (e) e.preventDefault()
     if (otp.length < 6) { toast.error('Please enter the 6-digit OTP.'); return }
+    if (verifyingRef.current) return   // already running — skip duplicate call
+    verifyingRef.current = true
     setLoading(true)
 
     const identifier = authMethod === 'phone' ? phone : email
     const verifyResult = await verifyOTPApi(identifier, otp, authMethod)
+    console.log('[DEBUG] verifyResult:', verifyResult)
     if (!verifyResult.success) {
       setLoading(false)
-      toast.error(verifyResult.error || 'Invalid OTP. Please try again.')
+      verifyingRef.current = false
+      toast.error(verifyResult.error || 'Error')
       return
     }
 
     // OTP verified — log the user in
     const loginPhone = authMethod === 'phone' ? phone : email
-    const { error, isNewUser } = await login(loginPhone, name)
+    const loginResult = await login(loginPhone, name)
+    
+    console.log('[DEBUG] loginResult:', loginResult) // Added for debugging
+
+    const { error, isNewUser } = loginResult
     setLoading(false)
+    verifyingRef.current = false
     if (error) {
       toast.error(error)
     } else {
@@ -259,13 +270,16 @@ export function CustomerLoginModal() {
         }}
       >
         {/* ── LEFT PANEL (brand) ────────────────────────── */}
-        <div style={{
-          width: 280, flexShrink: 0,
-          background: 'linear-gradient(160deg, #312e81 0%, #1e1b4b 50%, #0f172a 100%)',
-          padding: '2.5rem 2rem',
-          display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
-          position: 'relative', overflow: 'hidden',
-        }}>
+        <div
+          className="customer-modal-left-panel"
+          style={{
+            width: 280, flexShrink: 0,
+            background: 'linear-gradient(160deg, #312e81 0%, #1e1b4b 50%, #0f172a 100%)',
+            padding: '2.5rem 2rem',
+            display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+            position: 'relative', overflow: 'hidden',
+          }}
+        >
           {/* Glow orbs */}
           <div style={{ position: 'absolute', top: -60, right: -60, width: 180, height: 180, borderRadius: '50%', background: 'radial-gradient(circle, rgba(99,102,241,0.35) 0%, transparent 70%)', pointerEvents: 'none' }} />
           <div style={{ position: 'absolute', bottom: -40, left: -40, width: 140, height: 140, borderRadius: '50%', background: 'radial-gradient(circle, rgba(167,139,250,0.2) 0%, transparent 70%)', pointerEvents: 'none' }} />
@@ -641,7 +655,7 @@ export function CustomerLoginModal() {
                         setResendCountdown(60)
                         toast.success('New OTP sent!')
                       } else {
-                        toast.error(result.error || 'Failed to resend OTP.')
+                        toast.error(result.error || 'Error')
                       }
                     }} style={{ background: 'none', border: 'none', color: '#4f46e5', fontWeight: 700, cursor: 'pointer' }}>
                       Resend OTP →

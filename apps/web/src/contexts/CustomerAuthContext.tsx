@@ -314,10 +314,6 @@ export function CustomerAuthProvider({ children }: { children: React.ReactNode }
                      usersList?.find((u: any) => u.role === 'customer') ||
                      usersList?.[0]
 
-    // Security Check: Block Super Admin / Admin from logging in from customer app
-    if (existing && (existing.role === 'super_admin' || existing.role === 'admin')) {
-      return { error: 'Mobile number not found. Please register a new account.' }
-    }
 
     // Security Check: Block Suspended users with reason & support message
     if (existing && (existing.status === 'suspended' || existing.status === 'disabled')) {

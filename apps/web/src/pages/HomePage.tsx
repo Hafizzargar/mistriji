@@ -8,6 +8,8 @@ import { fetchSystemAnnouncement, SystemAnnouncement, isServicePaused, fetchOper
 import { ServiceIcon } from '@/components/ServiceIcon'
 import { Navigation, CheckCircle, Clock, Phone, LogIn, MapPin, ChevronRight, ArrowLeft } from 'lucide-react'
 
+import { notifyAdmin, getAdminUrl } from '@/api'
+
 interface Skill { id: string; name: string; icon: string | null; category: string | null }
 
 function shortId(uuid: string) {
@@ -191,18 +193,10 @@ export function HomePage({ currentArea, onAreaChange }: { currentArea: string; o
       const skillName = skills.find(s => s.id === selectedSkillId)?.name || 'Service'
       
       // Determine Admin URL based on current host
-      const host = window.location.hostname
-      const adminPort = '3001'
-      const adminUrl = `${window.location.protocol}//${host}:${adminPort}/jobs`
-
-      fetch('http://localhost:3002/api/notify/admin', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          message: `MistriJi: New booking received! ${skillName} in ${currentArea} by ${contactName || 'Customer'} (${clean}).`,
-          link: adminUrl
-        })
-      }).catch(()=>{})
+      notifyAdmin({
+        message: `MistriJi: New booking received! ${skillName} in ${currentArea} by ${contactName || 'Customer'} (${clean}).`,
+        link: getAdminUrl('/jobs')
+      })
       
       // Notify Admin via in-app notifications
       try {

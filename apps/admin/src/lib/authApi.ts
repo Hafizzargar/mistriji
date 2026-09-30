@@ -1,10 +1,15 @@
+
 /**
- * ─── Auth API Client ──────────────────────────────────────
- * Frontend client for communicating with the MistriJi Auth API
- * running on port 3002.
+ * ─── Auth API Client (Admin) ────────────────────────────────
+ * All OTP / Admin auth calls to the MistriJi backend API.
+ *
+ * Config (base URL) is in: @/lib/config.ts
+ * Do NOT hardcode URLs here — always import API_BASE_URL.
  */
 
-export const AUTH_API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3002'
+import { API_BASE_URL } from '@/lib/config'
+export { getApiBaseUrl, API_BASE_URL as AUTH_API_BASE } from '@/lib/config'
+
 
 /**
  * Send OTP to an email or phone number.
@@ -16,7 +21,7 @@ export async function sendOTP(
   type: 'email' | 'phone'
 ): Promise<{ success: boolean; message?: string; error?: string; expiresIn?: number }> {
   try {
-    const res = await fetch(`${AUTH_API_BASE}/api/otp/send`, {
+    const res = await fetch(`${API_BASE_URL}/api/otp/send`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -50,7 +55,7 @@ export async function verifyOTP(
   type: 'email' | 'phone'
 ): Promise<{ success: boolean; verified?: boolean; error?: string }> {
   try {
-    const res = await fetch(`${AUTH_API_BASE}/api/otp/verify`, {
+    const res = await fetch(`${API_BASE_URL}/api/otp/verify`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -83,7 +88,7 @@ export async function verifyPin(
   type: 'email' | 'phone'
 ): Promise<{ success: boolean; session?: any; error?: string }> {
   try {
-    const res = await fetch(`${AUTH_API_BASE}/api/otp/verify-pin`, {
+    const res = await fetch(`${API_BASE_URL}/api/otp/verify-pin`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -111,7 +116,7 @@ export async function verifyPin(
  */
 export async function checkAuthHealth(): Promise<boolean> {
   try {
-    const res = await fetch(`${AUTH_API_BASE}/api/health`)
+    const res = await fetch(`${API_BASE_URL}/api/health`)
     const data = await res.json()
     return data.status === 'ok'
   } catch {
@@ -129,7 +134,7 @@ export async function updatePinWithOTP(
   type: 'email' | 'phone'
 ): Promise<{ success: boolean; message?: string; error?: string }> {
   try {
-    const res = await fetch(`${AUTH_API_BASE}/api/otp/update-pin`, {
+    const res = await fetch(`${API_BASE_URL}/api/otp/update-pin`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -161,7 +166,7 @@ export async function sendAdminWelcomeEmailApi(params: {
   role?: string
 }): Promise<{ success: boolean; message?: string; error?: string }> {
   try {
-    const res = await fetch(`${AUTH_API_BASE}/api/admin/send-welcome`, {
+    const res = await fetch(`${API_BASE_URL}/api/admin/send-welcome`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
