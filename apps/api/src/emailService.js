@@ -41,13 +41,13 @@ async function sendEmailOTP(toEmail, otp) {
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
-        'Authorization': \`Bearer \${apiKey}\`,
+        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        from: \`MistriJi <\${fromEmail}>\`,
+        from: `MistriJi <${fromEmail}>`,
         to: [toEmail],
-        subject: \`\${otp} — Your MistriJi Login Code\`,
+        subject: `${otp} — Your MistriJi Login Code`,
         html: htmlContent
       })
     })
@@ -59,7 +59,7 @@ async function sendEmailOTP(toEmail, otp) {
       return { success: false, error: 'Resend API Error: ' + (data.message || 'Unknown error') }
     }
 
-    console.log(\`📧 OTP email sent via Resend to \${toEmail} | Code: [\${otp}]\`)
+    console.log(`📧 OTP email sent via Resend to ${toEmail} | Code: [${otp}]`)
     return { success: true }
   } catch (err) {
     console.error('Email send error:', err.message)
