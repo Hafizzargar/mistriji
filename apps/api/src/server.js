@@ -714,7 +714,7 @@ app.use(async (err, req, res, next) => {
     status: err.status || 500,
   })
 
-  res.status(err.status || 500).json({ error: 'Internal Server Error' })
+  res.status(err.status || 500).json({ error: 'Internal Server Error', message: err.message, stack: err.stack })
 })
 
 // ─── Start Server ─────────────────────────────────────────
