@@ -18,5 +18,5 @@
   "dependencies": {
     "postgres": "^3.4.9"
   },
-  "packageManager": "pnpm@9.4.0"
+  "packageManager": "pnpm@8.15.6"
 }
