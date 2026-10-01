@@ -395,8 +395,8 @@ app.post('/api/otp/verify-pin', otpRateLimitMiddleware, async (req, res) => {
     // Set HttpOnly, Secure cookie
     res.cookie('admin_refresh_token', refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      secure: true, // must be true for sameSite: 'none'
+      sameSite: 'none',
       path: '/api/otp/refresh',
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     })
