@@ -6,6 +6,9 @@
 export function getApiBaseUrl(): string {
   if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL
   if (typeof window !== 'undefined' && window.location.hostname) {
+    if (window.location.hostname.includes('vercel.app')) {
+      return 'https://mistriji.onrender.com'
+    }
     return `http://${window.location.hostname}:3002`
   }
   return 'http://localhost:3002'
