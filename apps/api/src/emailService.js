@@ -82,7 +82,7 @@ async function sendEmailOTP(toEmail, otp) {
     return { success: true }
   } catch (err) {
     console.error('Email send error:', err.message)
-    return { success: false, error: 'Failed to send email. Please try again.' }
+    return { success: false, error: 'SMTP Error: ' + err.message }
   }
 }
 
