@@ -136,6 +136,7 @@ export function LoginPage() {
   // Step 3: Verify PIN against DB via API
   async function handlePinSubmit(e?: React.FormEvent, overridePin?: string) {
     if (e) e.preventDefault()
+    if (loading) return
     const cleanPin = (overridePin || pin).trim()
 
     if (cleanPin.length !== 6 || !/^\d{6}$/.test(cleanPin)) {

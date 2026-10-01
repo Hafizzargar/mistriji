@@ -15,7 +15,7 @@ const express = require('express')
 const cors = require('cors')
 const jwt = require('jsonwebtoken')
 const cookieParser = require('cookie-parser')
-const { setOTP, verifyOTP } = require('./otpStore')
+const { setOTP, verifyOTP, deleteOTP } = require('./otpStore')
 const { sendEmailOTP, sendEmailNotification, sendAdminWelcomeEmail } = require('./emailService')
 const { sendSmsOTP, sendSmsNotification } = require('./smsService')
 const { logError } = require('./errorMonitor')
@@ -328,8 +328,8 @@ app.post('/api/otp/verify-pin', otpRateLimitMiddleware, async (req, res) => {
     return res.status(400).json({ error: 'Missing identifier, code, or pin.' })
   }
 
-  // 1. Verify OTP is still valid
-  const { valid, error } = verifyOTP(identifier, code)
+  // 1. Verify OTP is still valid, but keep it alive until PIN is confirmed
+  const { valid, error } = verifyOTP(identifier, code, true)
   if (!valid) {
     return res.status(401).json({ error: 'OTP expired or invalid. Please request a new one.' })
   }
@@ -372,6 +372,9 @@ app.post('/api/otp/verify-pin', otpRateLimitMiddleware, async (req, res) => {
       console.error("Missing SUPABASE_JWT_SECRET in API env!")
       return res.status(500).json({ error: 'Server misconfiguration.' })
     }
+
+    // Login successful, clean up OTP
+    deleteOTP(identifier)
 
     // Sign 15-minute Access JWT
     const accessToken = jwt.sign(

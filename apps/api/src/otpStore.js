@@ -96,4 +96,8 @@ function verifyOTP(identifier, code, keepAlive = false) {
   return { valid: true }
 }
 
-module.exports = { generateOTP, setOTP, verifyOTP }
+function deleteOTP(identifier) {
+  store.delete(identifier.toLowerCase().trim())
+}
+
+module.exports = { generateOTP, setOTP, verifyOTP, deleteOTP }
