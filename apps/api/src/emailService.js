@@ -45,7 +45,7 @@ async function sendEmailOTP(toEmail, otp) {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        from: `MistriJi <${fromEmail}>`,
+        from: fromEmail,
         to: [toEmail],
         subject: `${otp} — Your MistriJi Login Code`,
         html: htmlContent
