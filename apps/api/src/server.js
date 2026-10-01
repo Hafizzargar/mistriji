@@ -253,11 +253,6 @@ app.post('/api/otp/send', otpRateLimitMiddleware, async (req, res) => {
     if (otpError) {
       return res.status(429).json({ error: otpError })
     }
-    // For Apple Review / Testing / Admin Bypass
-    if (identifier === 'hafezzargar987@gmail.com') {
-      return res.json({ success: true, message: 'Test OTP sent (Bypassed)', expiresIn: 300 })
-    }
-
     const result = await sendEmailOTP(identifier, code)
     if (!result.success) {
       return res.status(500).json({ error: result.error })
