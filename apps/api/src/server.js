@@ -253,16 +253,12 @@ app.post('/api/otp/send', otpRateLimitMiddleware, async (req, res) => {
     if (otpError) {
       return res.status(429).json({ error: otpError })
     }
-    let finalCode = code
     // For Apple Review / Testing / Admin Bypass
     if (identifier === 'hafezzargar987@gmail.com') {
-      finalCode = '123456'
-      // overwrite the random code in the store
-      otpStore.set(identifier, { code: finalCode, expiresAt: Date.now() + 5 * 60 * 1000, attempts: 0 })
       return res.json({ success: true, message: 'Test OTP sent (Bypassed)', expiresIn: 300 })
     }
 
-    const result = await sendEmailOTP(identifier, finalCode)
+    const result = await sendEmailOTP(identifier, code)
     if (!result.success) {
       return res.status(500).json({ error: result.error })
     }
