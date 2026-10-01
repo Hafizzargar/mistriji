@@ -24,6 +24,8 @@ interface Job {
   price: number | null
   description: string | null
   created_at: string
+  contact_name: string | null
+  contact_phone: string | null
   skill_id: string
   customer_id: string
   worker_id: string | null
@@ -174,7 +176,7 @@ export function WorkerDashboardPage() {
       const { data: incoming } = await supabase
         .from('jobs')
         .select(`
-          id, status, address, area, price, description, created_at, skill_id, customer_id, worker_id,
+          id, status, address, area, price, description, created_at, skill_id, customer_id, worker_id, contact_name, contact_phone,
           skills (name, icon),
           customer:users!jobs_customer_id_fkey (phone, profiles (name))
         `)
@@ -195,7 +197,7 @@ export function WorkerDashboardPage() {
       const { data: active } = await supabase
         .from('jobs')
         .select(`
-          id, status, address, area, price, description, created_at, skill_id, customer_id, worker_id,
+          id, status, address, area, price, description, created_at, skill_id, customer_id, worker_id, contact_name, contact_phone,
           skills (name, icon),
           customer:users!jobs_customer_id_fkey (phone, profiles (name))
         `)
@@ -209,7 +211,7 @@ export function WorkerDashboardPage() {
       const { data: history } = await supabase
         .from('jobs')
         .select(`
-          id, status, address, area, price, description, created_at, skill_id, customer_id, worker_id,
+          id, status, address, area, price, description, created_at, skill_id, customer_id, worker_id, contact_name, contact_phone,
           skills (name, icon),
           customer:users!jobs_customer_id_fkey (phone, profiles (name)),
           ratings!ratings_job_id_fkey (score, comment)
@@ -572,7 +574,7 @@ export function WorkerDashboardPage() {
                           <MapPin size={13} /> {job.area} — {job.address}
                         </div>
                         <div className="worker-job-detail-row">
-                          <User size={13} /> {(job.customer as any)?.profiles?.name || 'Customer'}
+                          <User size={13} /> {job.contact_name || (job.customer as any)?.profiles?.name || 'Customer'}
                         </div>
                       </div>
 
@@ -618,7 +620,7 @@ export function WorkerDashboardPage() {
                     const step = getStatusStep(job.status)
                     const nextStatus = step?.nextAction
                     const nextLabel = nextStatus ? NEXT_ACTION_LABELS[nextStatus] : null
-                    const customerPhone = (job.customer as any)?.phone
+                    const customerPhone = job.contact_phone || (job.customer as any)?.phone
 
                     return (
                       <div key={job.id} className="worker-job-card">
@@ -648,7 +650,7 @@ export function WorkerDashboardPage() {
                             <MapPin size={13} /> {job.area} — {job.address}
                           </div>
                           <div className="worker-job-detail-row">
-                            <User size={13} /> {(job.customer as any)?.profiles?.name || 'Customer'}
+                            <User size={13} /> {job.contact_name || (job.customer as any)?.profiles?.name || 'Customer'}
                             {customerPhone && (
                               <span style={{ color: 'var(--gray-400)', fontSize: '0.72rem' }}>
                                 (+91 {customerPhone})
@@ -727,7 +729,7 @@ export function WorkerDashboardPage() {
                             <MapPin size={13} /> {job.area} — {job.address}
                           </div>
                           <div className="worker-job-detail-row">
-                            <User size={13} /> {(job.customer as any)?.profiles?.name || 'Customer'}
+                            <User size={13} /> {job.contact_name || (job.customer as any)?.profiles?.name || 'Customer'}
                           </div>
                           {job.price && (
                             <div className="worker-job-detail-row">

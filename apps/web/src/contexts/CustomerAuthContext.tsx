@@ -42,11 +42,15 @@ export interface CheckUserStatusResult {
   role?: string
 }
 
+export type LoginResult =
+  | { ok: true; isNewUser?: boolean }
+  | { ok: false; error: string; isSuspended?: boolean }
+
 interface CustomerAuthContextType {
   customer: CustomerUser | null
   isLoggedIn: boolean
   checkUserStatus: (identifier: string) => Promise<CheckUserStatusResult>
-  login: (identifier: string, name?: string) => Promise<{ error?: string; isNewUser?: boolean; isSuspended?: boolean }>
+  login: (identifier: string, name?: string) => Promise<LoginResult>
   logout: (customMessage?: string) => void
   updateProfile: (payload: UpdateProfilePayload) => Promise<{ success: boolean; error?: string }>
   refreshProfile: () => Promise<void>
@@ -126,6 +130,8 @@ export function CustomerAuthProvider({ children }: { children: React.ReactNode }
     if (customMessage) {
       setSuspendedAlert(customMessage)
     }
+    // Always redirect to the main page on logout
+    window.location.href = '/'
   }, [])
 
   const clearSuspendedAlert = useCallback(() => setSuspendedAlert(null), [])
@@ -255,8 +261,10 @@ export function CustomerAuthProvider({ children }: { children: React.ReactNode }
                    usersList.find((u: any) => u.role === 'customer') ||
                    usersList[0]
 
+      // Do NOT expose isSuperAdmin to prevent user-enumeration attacks.
+      // We will handle the admin redirect AFTER they successfully verify the OTP.
       if (user.role === 'super_admin' || user.role === 'admin') {
-        return { exists: true, isSuperAdmin: true, role: user.role }
+        return { exists: true, isSuperAdmin: false, role: 'customer' } // Mask as regular customer
       }
 
       // Check if user is suspended
@@ -282,9 +290,9 @@ export function CustomerAuthProvider({ children }: { children: React.ReactNode }
     }
   }, [])
 
-  const login = useCallback(async (identifier: string, name?: string): Promise<{ error?: string; isNewUser?: boolean; isSuspended?: boolean }> => {
+  const login = useCallback(async (identifier: string, name?: string): Promise<LoginResult> => {
     if (!identifier) {
-      return { error: 'Enter a valid mobile number or email' }
+      return { ok: false, error: 'Enter a valid mobile number or email' }
     }
 
     const isEmail = identifier.includes('@')
@@ -303,7 +311,7 @@ export function CustomerAuthProvider({ children }: { children: React.ReactNode }
     } else {
       cleanPhone = identifier.replace(/\D/g, '').slice(-10)
       if (cleanPhone.length < 10) {
-        return { error: 'Enter a valid 10-digit mobile number' }
+        return { ok: false, error: 'Enter a valid 10-digit mobile number' }
       }
       query = query.or(`phone.eq.${cleanPhone},phone.eq.+91${cleanPhone},phone.ilike.%${cleanPhone}%`)
     }
@@ -314,7 +322,16 @@ export function CustomerAuthProvider({ children }: { children: React.ReactNode }
                      usersList?.find((u: any) => u.role === 'customer') ||
                      usersList?.[0]
 
-
+    // Security Check: Block Super Admin / Admin from logging in via Customer App
+    // We do this AFTER OTP verification, so attackers can't use this to fish for admin emails.
+    const ADMIN_ROLES = ['super_admin', 'admin']
+    if (existing && ADMIN_ROLES.includes(existing.role)) {
+      console.warn('[CustomerAuth] Blocked admin login attempt via customer portal:', identifier)
+      return { 
+        ok: false,
+        error: '🔐 This account belongs to an Administrator. Please use the Admin Portal.',
+      }
+    }
     // Security Check: Block Suspended users with reason & support message
     if (existing && (existing.status === 'suspended' || existing.status === 'disabled')) {
       const photo = (existing.profiles as any)?.photo_url
@@ -323,6 +340,7 @@ export function CustomerAuthProvider({ children }: { children: React.ReactNode }
         : 'Violation of community policies or repeated booking issues.'
 
       return {
+        ok: false,
         isSuspended: true,
         error: `⛔ Your account has been suspended by administration.\n\nReason: "${reason}"\n\nPlease connect with MistriJi Support (+91 9419000000 / support@mistriji.in) to appeal or restore your account.`
       }
@@ -359,7 +377,7 @@ export function CustomerAuthProvider({ children }: { children: React.ReactNode }
 
       if (createErr) {
         console.warn('Customer create fallback:', createErr.message)
-        return { error: 'Failed to create account. This number might already be registered to a Mistri Partner or Admin.' }
+        return { ok: false, error: 'Failed to create account. This number might already be registered to a Mistri Partner or Admin.' }
       } else {
         userId = newUser.id
         resolvedName = resolvedName || `Customer ${isEmail ? identifier.split('@')[0] : cleanPhone.slice(-4)}`
@@ -386,7 +404,7 @@ export function CustomerAuthProvider({ children }: { children: React.ReactNode }
     setCustomer(user)
     sessionStorage.setItem(SESSION_KEY, JSON.stringify(user))
     setShowLoginModal(false)
-    return { isNewUser: !existing }
+    return { ok: true, isNewUser: !existing }
   }, [])
 
   const updateProfile = useCallback(async (payload: UpdateProfilePayload): Promise<{ success: boolean; error?: string }> => {

@@ -180,12 +180,19 @@ export function HomePage({ currentArea, onAreaChange }: { currentArea: string; o
     
     setSubmitting(true)
     try {
-      // Upsert profile in case they added/changed their address during this step
-      await supabase.from('profiles').upsert({ user_id: customer.id, name: contactName || 'Customer', area: currentArea, city: JAMMU_AREAS[currentArea]?.region || 'Jammu' }, { onConflict: 'user_id' })
-      
       const statusToSet = platformFeatures?.assignment_mode === 'manual' ? 'pending_dispatch' : 'requested'
       
-      const payload: any = { customer_id: customer.id, skill_id: selectedSkillId, area: currentArea, address: address || currentArea, status: statusToSet, price: null }
+      const payload: any = { 
+        customer_id: customer.id, 
+        skill_id: selectedSkillId, 
+        area: currentArea, 
+        address: address || currentArea, 
+        status: statusToSet, 
+        price: null,
+        contact_name: contactName,
+        contact_phone: clean
+      }
+      
       const { data: job, error: jErr } = await supabase.from('jobs').insert(payload).select('id').single()
       if (jErr) throw jErr
       setSubmittedJob(job)
@@ -228,10 +235,8 @@ export function HomePage({ currentArea, onAreaChange }: { currentArea: string; o
   // ── SUCCESS ────────────────────────────────────────────
   if (submittedJob) {
     return (
-      <div className="hide-scrollbar" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg,#0f0c29,#302b63,#24243e)', padding: '1.25rem 1rem', position: 'relative', overflowY: 'auto' }}>
-        <div style={{ position: 'absolute', top: '20%', left: '15%', width: 300, height: 300, borderRadius: '50%', background: 'radial-gradient(circle, rgba(99,102,241,0.2) 0%, transparent 70%)', pointerEvents: 'none' }} />
-        <div style={{ position: 'absolute', bottom: '10%', right: '10%', width: 250, height: 250, borderRadius: '50%', background: 'radial-gradient(circle, rgba(167,139,250,0.15) 0%, transparent 70%)', pointerEvents: 'none' }} />
-        <div style={{ background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(24px)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '1.75rem', padding: '1.75rem 1.5rem', maxWidth: 440, width: '100%', textAlign: 'center', animation: 'slideUp 0.4s cubic-bezier(0.34,1.56,0.64,1)', boxShadow: '0 32px 80px rgba(0,0,0,0.4)', boxSizing: 'border-box' }}>
+      <div className="hide-scrollbar" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0f172a', padding: '1.25rem 1rem', position: 'relative', overflowY: 'auto' }}>
+        <div style={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '1.75rem', padding: '1.75rem 1.5rem', maxWidth: 440, width: '100%', textAlign: 'center', animation: 'slideUp 0.4s cubic-bezier(0.34,1.56,0.64,1)', boxShadow: '0 32px 80px rgba(0,0,0,0.4)', boxSizing: 'border-box' }}>
           <div style={{ width: 60, height: 60, borderRadius: '50%', background: 'linear-gradient(135deg,#4f46e5,#7c3aed)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem', boxShadow: '0 12px 32px rgba(79,70,229,0.5)' }}>
             <CheckCircle size={32} color="#fff" />
           </div>
@@ -304,9 +309,18 @@ export function HomePage({ currentArea, onAreaChange }: { currentArea: string; o
           }
           .homepage-form-header {
             padding: 0.625rem 1rem !important;
+            position: sticky !important;
+            top: 0 !important;
+            background: #1e293b !important;
+            z-index: 50 !important;
           }
           .homepage-bottom-bar {
             padding: 0.5rem 1rem !important;
+            position: sticky !important;
+            bottom: 0 !important;
+            background: #1e293b !important;
+            z-index: 50 !important;
+            border-top: 1px solid rgba(255,255,255,0.05) !important;
           }
         }
       `}</style>
@@ -316,16 +330,11 @@ export function HomePage({ currentArea, onAreaChange }: { currentArea: string; o
         {/* ── LEFT PANEL ─────────────────────────────────── */}
         <div className="homepage-left-panel hide-scrollbar" style={{
           width: '42%', flexShrink: 0,
-          background: 'linear-gradient(160deg, #0f0c29 0%, #1a1040 40%, #0f172a 100%)',
+          background: '#0f172a', /* slate-900 */
           display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
           padding: '1.25rem 1.75rem',
           position: 'relative', overflowX: 'hidden', overflowY: 'auto',
         }}>
-          {/* Animated glow orbs */}
-          <div style={{ position: 'absolute', top: '5%', right: '-5%', width: 220, height: 220, borderRadius: '50%', background: 'radial-gradient(circle, rgba(99,102,241,0.35) 0%, transparent 70%)', animation: 'orb 8s ease-in-out infinite', pointerEvents: 'none' }} />
-          <div style={{ position: 'absolute', bottom: '10%', left: '-8%', width: 200, height: 200, borderRadius: '50%', background: 'radial-gradient(circle, rgba(167,139,250,0.22) 0%, transparent 70%)', animation: 'orb 10s ease-in-out infinite reverse', pointerEvents: 'none' }} />
-          <div style={{ position: 'absolute', top: '45%', left: '20%', width: 120, height: 120, borderRadius: '50%', background: 'radial-gradient(circle, rgba(56,189,248,0.1) 0%, transparent 70%)', animation: 'orb 12s ease-in-out infinite', pointerEvents: 'none' }} />
-
           {/* Decorative grid dots */}
           <div style={{ position: 'absolute', inset: 0, backgroundImage: 'radial-gradient(rgba(255,255,255,0.04) 1px, transparent 1px)', backgroundSize: '28px 28px', pointerEvents: 'none' }} />
 
@@ -340,7 +349,7 @@ export function HomePage({ currentArea, onAreaChange }: { currentArea: string; o
 
             <h1 style={{ color: '#fff', fontWeight: 900, fontSize: 'clamp(1.25rem, 1.6vw, 1.75rem)', lineHeight: 1.15, marginBottom: '0.375rem', letterSpacing: '-0.03em' }}>
               Book a Trusted<br />
-              <span style={{ background: 'linear-gradient(90deg, #818cf8, #c084fc)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+              <span style={{ color: '#818cf8' }}>
                 Mistri Across J&K
               </span>
             </h1>
@@ -396,7 +405,7 @@ export function HomePage({ currentArea, onAreaChange }: { currentArea: string; o
         {/* ── RIGHT FORM PANEL ─────────────────────────────── */}
         <div className="homepage-right-panel" style={{
           flex: 1,
-          background: 'linear-gradient(160deg, #1e1b4b 0%, #312e81 50%, #1e1b4b 100%)',
+          background: '#1e293b', /* slate-800 */
           display: 'flex', flexDirection: 'column',
           overflow: 'hidden',
           position: 'relative',
@@ -574,10 +583,10 @@ export function HomePage({ currentArea, onAreaChange }: { currentArea: string; o
                     </div>
                   ) : (
                     <>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.625rem' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                         <div>
                           <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'rgba(255,255,255,0.5)', display: 'block', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Your Name</label>
-                          <input className="glass-input" placeholder="Full name" value={contactName} onChange={e => setContactName(e.target.value)} required={!isLoggedIn} readOnly={isLoggedIn}
+                          <input className="glass-input" placeholder="Full name" value={contactName} onChange={e => setContactName(e.target.value)} required
                             style={{ width: '100%', height: 42, padding: '0 0.875rem', background: 'rgba(255,255,255,0.02)', border: '1.5px solid rgba(255,255,255,0.1)', borderRadius: '0.75rem', color: 'rgba(255,255,255,0.5)', fontSize: '0.875rem', outline: 'none', transition: 'all 0.2s', boxSizing: 'border-box' }}
                           />
                         </div>
@@ -587,7 +596,7 @@ export function HomePage({ currentArea, onAreaChange }: { currentArea: string; o
                             <div style={{ padding: '0 0.625rem', background: 'rgba(255,255,255,0.04)', borderRight: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', gap: '0.25rem', color: '#818cf8', fontSize: '0.8rem', fontWeight: 700, flexShrink: 0 }}>
                               <Phone size={12} />+91
                             </div>
-                            <input type="tel" inputMode="numeric" maxLength={10} placeholder="98xxxxxxxx" value={contactPhone} onChange={e => setContactPhone(e.target.value.replace(/\D/g, ''))} required readOnly={isLoggedIn}
+                            <input type="tel" inputMode="numeric" maxLength={10} placeholder="98xxxxxxxx" value={contactPhone} onChange={e => setContactPhone(e.target.value.replace(/\D/g, ''))} required
                               style={{ flex: 1, border: 'none', outline: 'none', padding: '0 0.625rem', fontSize: '0.875rem', fontWeight: 600, background: 'transparent', color: 'rgba(255,255,255,0.5)' }}
                             />
                           </div>

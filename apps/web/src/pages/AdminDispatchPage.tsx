@@ -16,6 +16,8 @@ interface JobFeedItem {
   price: number
   preferred_time: string | null
   created_at: string
+  contact_name: string | null
+  contact_phone: string | null
   customers: {
     profiles: { name: string; phone: string } | null
     phone: string
@@ -40,14 +42,12 @@ export function AdminDispatchPage() {
   const [workers, setWorkers] = useState<WorkerOption[]>([])
   const [loading, setLoading] = useState(true)
 
-  // Redirect non-admins
+  // Redirect non-admins or non-logged in users
   useEffect(() => {
-    if (!isLoggedIn) return
-    if (customer?.role !== 'admin' && customer?.role !== 'super_admin') {
-      navigate('/')
-      toast.error('Unauthorized access. Admins only.')
+    if (!isLoggedIn || (customer?.role !== 'admin' && customer?.role !== 'super_admin')) {
+      navigate('/', { replace: true })
     }
-  }, [customer, isLoggedIn, navigate, toast])
+  }, [customer, isLoggedIn, navigate])
 
   // Fetch initial data
   useEffect(() => {
@@ -59,7 +59,7 @@ export function AdminDispatchPage() {
         const { data: jobsData, error: jobsErr } = await supabase
           .from('jobs')
           .select(`
-            id, customer_id, requested_worker_id, skill_id, status, area, address, price, preferred_time, created_at,
+            id, customer_id, requested_worker_id, skill_id, status, area, address, price, preferred_time, created_at, contact_name, contact_phone,
             customers:users!jobs_customer_id_fkey( phone, profiles(name) ),
             skills(name)
           `)
@@ -233,9 +233,11 @@ export function AdminDispatchPage() {
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
                     <User size={16} style={{ color: 'var(--gray-400)', marginTop: '2px' }} />
                     <div>
-                      <div style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--gray-800)' }}>{job.customers?.profiles?.name || 'Customer'}</div>
+                      <div style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--gray-800)' }}>
+                        {job.contact_name || job.customers?.profiles?.name || 'Customer'}
+                      </div>
                       <div style={{ fontSize: '0.85rem', color: 'var(--gray-500)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                        <Phone size={12} /> {job.customers?.phone || 'No phone'}
+                        <Phone size={12} /> {job.contact_phone || job.customers?.phone || 'No phone'}
                       </div>
                     </div>
                   </div>

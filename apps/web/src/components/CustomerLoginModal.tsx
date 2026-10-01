@@ -226,13 +226,12 @@ export function CustomerLoginModal() {
     
     console.log('[DEBUG] loginResult:', loginResult) // Added for debugging
 
-    const { error, isNewUser } = loginResult
     setLoading(false)
     verifyingRef.current = false
-    if (error) {
-      toast.error(error)
+    if (!loginResult.ok) {
+      toast.error(loginResult.error)
     } else {
-      toast.success(isNewUser ? `🎉 Welcome ${name || 'Customer'}! Account created.` : `Welcome back ${name || 'Customer'}!`)
+      toast.success(loginResult.isNewUser ? `🎉 Welcome ${name || 'Customer'}! Account created.` : `Welcome back ${name || 'Customer'}!`)
       handleClose()
     }
   }
