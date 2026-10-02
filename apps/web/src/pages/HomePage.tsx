@@ -225,8 +225,8 @@ export function HomePage({ currentArea, onAreaChange }: { currentArea: string; o
           display: flex;
           align-items: flex-start;
           justify-content: flex-start;
-          padding: 1.5rem 2rem 1.5rem 3rem;
-          gap: 2rem;
+          padding: 1rem 2rem 1rem 3rem;
+          gap: 1.5rem;
           overflow-y: auto;
           min-height: 0;
         }
@@ -236,8 +236,8 @@ export function HomePage({ currentArea, onAreaChange }: { currentArea: string; o
           background: rgba(15,20,50,0.85);
           backdrop-filter: blur(24px);
           border: 1px solid rgba(255,255,255,0.1);
-          border-radius: 1.5rem;
-          padding: 1.5rem;
+          border-radius: 1.25rem;
+          padding: 1.25rem 1.5rem;
           width: 100%;
           max-width: 440px;
           box-shadow: 0 24px 64px rgba(0,0,0,0.5);
@@ -250,7 +250,7 @@ export function HomePage({ currentArea, onAreaChange }: { currentArea: string; o
         .hp-card::-webkit-scrollbar { display: none; }
 
         /* ── STEP INDICATOR ── */
-        .hp-steps { display:flex; align-items:center; margin-bottom:1.75rem; }
+        .hp-steps { display:flex; align-items:center; margin-bottom:1.25rem; }
         .hp-step { display:flex; flex-direction:column; align-items:center; gap:4px; flex:1; }
         .hp-step-dot { width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.8rem; font-weight:800; transition:all 0.25s; border:2px solid transparent; }
         .hp-step-dot.done { background:#4f46e5; border-color:#818cf8; color:#fff; }
@@ -261,10 +261,10 @@ export function HomePage({ currentArea, onAreaChange }: { currentArea: string; o
 
         /* ── INPUTS ── */
         .hp-input {
-          width:100%; height:50px; padding:0 1rem;
+          width:100%; height:44px; padding:0 0.875rem;
           background:rgba(255,255,255,0.05);
           border:1.5px solid rgba(255,255,255,0.1);
-          border-radius:0.875rem; color:#e2e8f0; font-size:0.95rem;
+          border-radius:0.75rem; color:#e2e8f0; font-size:0.9rem;
           outline:none; transition:border-color 0.2s;
         }
         .hp-input:focus { border-color:rgba(129,140,248,0.7); background:rgba(255,255,255,0.07); }
@@ -272,10 +272,10 @@ export function HomePage({ currentArea, onAreaChange }: { currentArea: string; o
 
         /* ── GPS BUTTON ── */
         .hp-gps-btn {
-          width:100%; height:50px;
+          width:100%; height:44px;
           background:rgba(255,255,255,0.04);
           border:1.5px solid rgba(255,255,255,0.15);
-          border-radius:0.875rem;
+          border-radius:0.75rem;
           color:rgba(255,255,255,0.85); font-size:0.95rem; font-weight:600;
           cursor:pointer; display:flex; align-items:center; justify-content:center; gap:0.625rem;
           transition:all 0.2s;
@@ -286,10 +286,10 @@ export function HomePage({ currentArea, onAreaChange }: { currentArea: string; o
         /* ── CUSTOM DROPDOWN ── */
         .hp-dropdown { position:relative; }
         .hp-dropdown-trigger {
-          width:100%; height:58px; padding:0 1rem;
+          width:100%; height:50px; padding:0 1rem;
           background:rgba(255,255,255,0.05);
           border:1.5px solid rgba(255,255,255,0.12);
-          border-radius:0.875rem;
+          border-radius:0.75rem;
           color:#e2e8f0; font-size:0.95rem;
           cursor:pointer; display:flex; align-items:flex-start; flex-direction:column; justify-content:center;
           transition:all 0.2s; text-align:left;
@@ -305,7 +305,7 @@ export function HomePage({ currentArea, onAreaChange }: { currentArea: string; o
           background:rgba(20,25,60,0.98);
           backdrop-filter:blur(20px);
           border:1.5px solid rgba(255,255,255,0.12);
-          border-radius:0.875rem;
+          border-radius:0.75rem;
           overflow:hidden;
           z-index:100;
           animation: dropIn 0.15s ease;
@@ -326,9 +326,9 @@ export function HomePage({ currentArea, onAreaChange }: { currentArea: string; o
 
         /* ── PRIMARY / SECONDARY BUTTONS ── */
         .hp-btn-primary {
-          width:100%; height:52px;
+          width:100%; height:46px;
           background:linear-gradient(135deg,#4f46e5,#7c3aed);
-          border:none; border-radius:0.875rem;
+          border:none; border-radius:0.75rem;
           color:#fff; font-weight:800; font-size:0.95rem;
           cursor:pointer; display:flex; align-items:center; justify-content:center; gap:0.5rem;
           box-shadow:0 6px 20px rgba(79,70,229,0.4);
@@ -337,18 +337,18 @@ export function HomePage({ currentArea, onAreaChange }: { currentArea: string; o
         .hp-btn-primary:hover { opacity:0.92; transform:translateY(-1px); }
         .hp-btn-primary:disabled { opacity:0.5; cursor:not-allowed; transform:none; }
         .hp-btn-secondary {
-          width:100%; height:50px;
+          width:100%; height:44px;
           background:rgba(255,255,255,0.05);
-          border:1.5px solid rgba(255,255,255,0.1); border-radius:0.875rem;
+          border:1.5px solid rgba(255,255,255,0.1); border-radius:0.75rem;
           color:rgba(255,255,255,0.65); font-weight:700; font-size:0.9rem;
           cursor:pointer; display:flex; align-items:center; justify-content:center; gap:0.4rem;
           transition:background 0.2s;
         }
         .hp-btn-secondary:hover { background:rgba(255,255,255,0.09); }
         .hp-btn-login {
-          width:100%; height:52px;
+          width:100%; height:46px;
           background:rgba(245,158,11,0.1);
-          border:1.5px solid rgba(245,158,11,0.3); border-radius:0.875rem;
+          border:1.5px solid rgba(245,158,11,0.3); border-radius:0.75rem;
           color:#fbbf24; font-weight:800; font-size:0.95rem;
           cursor:pointer; display:flex; align-items:center; justify-content:center; gap:0.5rem;
           transition:all 0.2s;
@@ -359,10 +359,10 @@ export function HomePage({ currentArea, onAreaChange }: { currentArea: string; o
         .hp-svc-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:0.625rem; margin-bottom:1rem; }
         .hp-svc-card {
           display:flex; flex-direction:column; align-items:center; justify-content:center;
-          gap:0.4rem; padding:0.875rem 0.4rem;
+          gap:0.25rem; padding:0.6rem 0.4rem;
           background:rgba(255,255,255,0.04);
           border:1.5px solid rgba(255,255,255,0.07);
-          border-radius:1rem;
+          border-radius:0.75rem;
           color:rgba(255,255,255,0.65); font-size:0.8rem; font-weight:600;
           cursor:pointer; transition:all 0.15s; text-align:center;
         }
@@ -455,10 +455,10 @@ export function HomePage({ currentArea, onAreaChange }: { currentArea: string; o
 
             {/* ── STEP 1: LOCATION ── */}
             {step === 1 && (
-              <div style={{ animation:'fadeUp 0.2s ease', display:'flex', flexDirection:'column', gap:'1rem' }}>
+              <div style={{ animation:'fadeUp 0.2s ease', display:'flex', flexDirection:'column', gap:'0.875rem' }}>
                 <div>
-                  <h2 style={{ color:'#fff', fontWeight:800, fontSize:'1.5rem', margin:'0 0 0.25rem', lineHeight:1.2 }}>Where do you need help?</h2>
-                  <p style={{ color:'rgba(255,255,255,0.45)', fontSize:'0.875rem', margin:0 }}>Select your district in Jammu &amp; Kashmir</p>
+                  <h2 style={{ color:'#fff', fontWeight:800, fontSize:'1.35rem', margin:'0 0 0.15rem', lineHeight:1.2 }}>Where do you need help?</h2>
+                  <p style={{ color:'rgba(255,255,255,0.45)', fontSize:'0.85rem', margin:0 }}>Select your district in Jammu &amp; Kashmir</p>
                 </div>
 
                 {/* GPS */}
@@ -472,7 +472,7 @@ export function HomePage({ currentArea, onAreaChange }: { currentArea: string; o
                   <span className="hp-divider-text">OR</span>
                   <div className="hp-divider-line" />
                 </div>
-                <p style={{ color:'rgba(255,255,255,0.35)', fontSize:'0.8rem', margin:'-0.5rem 0 -0.25rem', textAlign:'center' }}>or choose your district</p>
+                <p style={{ color:'rgba(255,255,255,0.35)', fontSize:'0.75rem', margin:'-0.6rem 0 -0.4rem', textAlign:'center' }}>or choose your district</p>
 
                 {/* Custom Dropdown */}
                 <div className="hp-dropdown" ref={dropdownRef}>
