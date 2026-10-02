@@ -4,7 +4,8 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/contexts/ToastContext'
 import { ArrowLeft, RefreshCw, Trash2, Phone, MapPin } from 'lucide-react'
-import { JAMMU_AREAS } from '@/lib/config'
+import { JAMMU_AREAS } from '@/lib/jammuCoordinates'
+import { logAdminAction } from '@/lib/auditLogger'
 
 export function JobDetailsPage() {
   const { id } = useParams<{ id: string }>()
@@ -14,7 +15,7 @@ export function JobDetailsPage() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   
-  const { currentAdmin, logAdminAction } = useAuth()
+  const { user: currentAdmin } = useAuth()
   const toast = useToast()
 
   useEffect(() => {

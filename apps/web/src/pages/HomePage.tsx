@@ -651,7 +651,7 @@ export function HomePage({ currentArea, onAreaChange }: { currentArea: string; o
         </nav>
       </div>
     </>
-  )
+  
 }
 
 export default HomePage
