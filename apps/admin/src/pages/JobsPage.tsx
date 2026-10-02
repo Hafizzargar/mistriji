@@ -509,7 +509,7 @@ export function JobsPage() {
       header: 'Actions',
       sortable: false,
       render: j => (
-        <Link to={`/jobs/${j.id}`} target="_blank" className="btn btn-sm btn-secondary" title="View Details">
+        <Link to={`/jobs/${j.id}`} className="btn btn-sm btn-secondary" title="View Details">
           View Details
         </Link>
       )
