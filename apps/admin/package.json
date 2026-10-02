@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "nodemailer": "^6.9.14",
     "@hookform/resolvers": "^3.6.0",
     "@supabase/supabase-js": "^2.43.4",
     "@types/crypto-js": "^4.2.2",

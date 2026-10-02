@@ -38,25 +38,25 @@ async function sendEmailOTP(toEmail, otp) {
   `
 
   try {
-    const res = await fetch('https://api.resend.com/emails', {
+    const vercelUrl = process.env.VERCEL_FRONTEND_URL || 'https://ji-web.vercel.app';
+    const res = await fetch(`${vercelUrl}/api/sendEmail`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        from: fromEmail,
-        to: [toEmail],
+        to: toEmail,
         subject: `${otp} — Your MistriJi Login Code`,
-        html: htmlContent
+        html: htmlContent,
+        secret: process.env.VERCEL_SMTP_SECRET // Optional protection
       })
     })
 
     const data = await res.json()
 
     if (!res.ok) {
-      console.error('Resend API Error:', data)
-      return { success: false, error: 'Resend API Error: ' + (data.message || 'Unknown error') }
+      console.error('Vercel SMTP Error:', data)
+      return { success: false, error: 'Vercel SMTP Error: ' + (data.error || 'Unknown error') }
     }
 
     console.log(`📧 OTP email sent via Resend to ${toEmail} | Code: [${otp}]`)
