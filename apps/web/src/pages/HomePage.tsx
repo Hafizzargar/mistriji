@@ -161,35 +161,8 @@ export function HomePage({ currentArea, onAreaChange }: { currentArea: string; o
     setContactName(customer?.name || ''); setContactPhone(customer?.phone || '')
   }
 
-  // ── SUCCESS SCREEN ──────────────────────────────────────
-  if (submittedJob) {
-    return (
-      <div className="hp-page">
-        <div className="hp-card" style={{ textAlign: 'center' }}>
-          <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(79,70,229,0.2)', border: '2px solid rgba(99,102,241,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.25rem', fontSize: '1.75rem' }}>✅</div>
-          <h2 style={{ color: '#fff', fontWeight: 800, fontSize: '1.35rem', margin: '0 0 0.5rem' }}>Request Submitted!</h2>
-          <div style={{ display: 'inline-block', background: 'rgba(99,102,241,0.2)', border: '1px solid rgba(99,102,241,0.4)', borderRadius: '0.5rem', padding: '0.3rem 0.875rem', color: '#a5b4fc', fontWeight: 800, fontSize: '0.95rem', marginBottom: '1rem', letterSpacing: '0.05em' }}>
-            {shortId(submittedJob.id)}
-          </div>
-          <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '0.9rem', lineHeight: 1.55, margin: '0 0 1rem' }}>
-            Our team is finding a verified worker in <strong style={{ color: '#a5b4fc' }}>{currentArea}</strong>.<br />We'll contact you once assigned.
-          </p>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: '9999px', padding: '0.3rem 0.875rem', fontSize: '0.78rem', fontWeight: 700, color: '#fbbf24', marginBottom: '1.5rem' }}>
-            <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#f59e0b' }} />
-            Status: Admin Reviewing
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
-            <button onClick={() => navigate('/my-bookings')} className="hp-btn-primary">
-              Track My Request <ChevronRight size={16} />
-            </button>
-            <button onClick={reset} className="hp-btn-secondary">Submit Another Request</button>
-          </div>
-        </div>
-      </div>
-    )
-  }
+  // ── SUCCESS SCREEN AND MAIN RETURN ──────────────────────────────────────
 
-  return (
     <>
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
@@ -442,11 +415,34 @@ export function HomePage({ currentArea, onAreaChange }: { currentArea: string; o
 
         {/* ── BODY ── */}
         <div className="hp-body">
-          <div className="hp-card">
-
-            {/* Step indicator */}
-            <div className="hp-steps">
-              {['Location', 'Service', 'Confirm'].map((label, i) => {
+          <div className="hp-card" style={submittedJob ? { textAlign: 'center' } : {}}>
+            
+            {submittedJob ? (
+              <div style={{ animation: 'fadeUp 0.3s ease' }}>
+                <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(79,70,229,0.2)', border: '2px solid rgba(99,102,241,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.25rem', fontSize: '1.75rem' }}>✅</div>
+                <h2 style={{ color: '#fff', fontWeight: 800, fontSize: '1.35rem', margin: '0 0 0.5rem' }}>Request Submitted!</h2>
+                <div style={{ display: 'inline-block', background: 'rgba(99,102,241,0.2)', border: '1px solid rgba(99,102,241,0.4)', borderRadius: '0.5rem', padding: '0.3rem 0.875rem', color: '#a5b4fc', fontWeight: 800, fontSize: '0.95rem', marginBottom: '1rem', letterSpacing: '0.05em' }}>
+                  {shortId(submittedJob.id)}
+                </div>
+                <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '0.9rem', lineHeight: 1.55, margin: '0 0 1rem' }}>
+                  Our team is finding a verified worker in <strong style={{ color: '#a5b4fc' }}>{currentArea}</strong>.<br />We'll contact you once assigned.
+                </p>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: '9999px', padding: '0.3rem 0.875rem', fontSize: '0.78rem', fontWeight: 700, color: '#fbbf24', marginBottom: '1.5rem' }}>
+                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#f59e0b' }} />
+                  Status: Admin Reviewing
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
+                  <button onClick={() => navigate('/my-bookings')} className="hp-btn-primary">
+                    Track My Request <ChevronRight size={16} />
+                  </button>
+                  <button onClick={reset} className="hp-btn-secondary">Submit Another Request</button>
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* Step indicator */}
+                <div className="hp-steps">
+                  {['Location', 'Service', 'Confirm'].map((label, i) => {
                 const n = i + 1; const done = n < step; const active = n === step
                 return (
                   <React.Fragment key={label}>
@@ -618,6 +614,8 @@ export function HomePage({ currentArea, onAreaChange }: { currentArea: string; o
                 )}
               </div>
             )}
+            </>
+          )}
           </div>
         {/* ── RIGHT PANEL (desktop features) ── */}
         <div className="hp-features-panel">
