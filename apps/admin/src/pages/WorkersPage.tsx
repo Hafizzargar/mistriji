@@ -929,8 +929,6 @@ export function WorkersPage() {
               </div>
             </div>
 
-            </div>
-
           </div>
         </div>
 
