@@ -364,11 +364,10 @@ export function JobsPage() {
         const custDist = custProfiles?.district?.toLowerCase() || ''
         const custCity = custProfiles?.city?.toLowerCase() || ''
         
-        // Find workers who have the skill AND are in the EXACT SAME area/district/city
-        let matchingWorkers = workers.filter(w => {
-          const hasSkill = (w as any).worker_skills?.some((ws: any) => ws.skill_id === jobSkillId)
-          if (!hasSkill) return false
-
+        // Find workers who have the skill
+        const skilledWorkers = workers.filter(w => (w as any).worker_skills?.some((ws: any) => ws.skill_id === jobSkillId))
+        
+        let matchingWorkers = skilledWorkers.filter(w => {
           const p = w.profiles
           if (!p) return false
           const wArea = p.area?.toLowerCase() || ''
@@ -385,7 +384,7 @@ export function JobsPage() {
             }
           }
 
-          // Strict District Isolation: If we know the target district, worker MUST be from there
+          // Strict District Isolation: If we know the target district, worker MUST be from there to be considered "nearby"
           if (targetDist && wDist && wDist !== targetDist && !wDist.includes(targetDist) && !targetDist.includes(wDist)) {
             return false
           }
@@ -405,11 +404,13 @@ export function JobsPage() {
           return distMatch || cityMatch || areaMatch || jobTextMatch
         })
 
-        // Always include the currently assigned worker, even if they don't match the location
+        // Always include the currently assigned worker in matching workers
         const assignedWorker = workers.find(w => w.id === j.worker_id)
         if (assignedWorker && !matchingWorkers.find(w => w.id === assignedWorker.id)) {
           matchingWorkers = [assignedWorker, ...matchingWorkers]
         }
+        
+        const otherWorkers = skilledWorkers.filter(w => !matchingWorkers.find(mw => mw.id === w.id))
         
         return (
           <select
@@ -419,14 +420,30 @@ export function JobsPage() {
             onChange={e => handleAssignWorker(j.id, e.target.value)}
           >
             <option value="">-- Unassigned --</option>
-            {matchingWorkers.map(w => {
-              const wLoc = [w.profiles?.city, w.profiles?.district].filter(Boolean).join(', ')
-              return (
-                <option key={w.id} value={w.id}>
-                  👷 {w.profiles?.name || w.phone} {wLoc ? `(${wLoc})` : ''}
-                </option>
-              )
-            })}
+            {matchingWorkers.length > 0 && (
+              <optgroup label="Nearby Workers">
+                {matchingWorkers.map(w => {
+                  const wLoc = [w.profiles?.city, w.profiles?.district].filter(Boolean).join(', ')
+                  return (
+                    <option key={w.id} value={w.id}>
+                      👷 {w.profiles?.name || w.phone} {wLoc ? `(${wLoc})` : ''}
+                    </option>
+                  )
+                })}
+              </optgroup>
+            )}
+            {otherWorkers.length > 0 && (
+              <optgroup label="Other Areas (Same Skill)">
+                {otherWorkers.map(w => {
+                  const wLoc = [w.profiles?.city, w.profiles?.district].filter(Boolean).join(', ')
+                  return (
+                    <option key={w.id} value={w.id}>
+                      👷 {w.profiles?.name || w.phone} {wLoc ? `(${wLoc})` : ''}
+                    </option>
+                  )
+                })}
+              </optgroup>
+            )}
           </select>
         )
       }
@@ -747,10 +764,9 @@ export function JobsPage() {
                       const custDist = custProfiles?.district?.toLowerCase() || ''
                       const custCity = custProfiles?.city?.toLowerCase() || ''
                       
-                      let matching = workers.filter(w => {
-                        const hasSkill = (w as any).worker_skills?.some((ws: any) => ws.skill_id === jobSkillId)
-                        if (!hasSkill) return false
-
+                      const skilledWorkers = workers.filter(w => (w as any).worker_skills?.some((ws: any) => ws.skill_id === jobSkillId))
+                      
+                      let matching = skilledWorkers.filter(w => {
                         const p = w.profiles
                         if (!p) return false
                         const wArea = p.area?.toLowerCase() || ''
@@ -789,15 +805,37 @@ export function JobsPage() {
                       if (assignedWorker && !matching.find(w => w.id === assignedWorker.id)) {
                         matching = [assignedWorker, ...matching]
                       }
+                      
+                      const otherWorkers = skilledWorkers.filter(w => !matching.find(mw => mw.id === w.id))
 
-                      return matching.map(w => {
-                        const wLoc = [w.profiles?.city, w.profiles?.district].filter(Boolean).join(', ')
-                        return (
-                          <option key={w.id} value={w.id}>
-                            👷 {w.profiles?.name || w.phone} {wLoc ? `(${wLoc})` : ''}
-                          </option>
-                        )
-                      })
+                      return (
+                        <>
+                          {matching.length > 0 && (
+                            <optgroup label="Nearby Workers">
+                              {matching.map(w => {
+                                const wLoc = [w.profiles?.city, w.profiles?.district].filter(Boolean).join(', ')
+                                return (
+                                  <option key={w.id} value={w.id}>
+                                    👷 {w.profiles?.name || w.phone} {wLoc ? `(${wLoc})` : ''}
+                                  </option>
+                                )
+                              })}
+                            </optgroup>
+                          )}
+                          {otherWorkers.length > 0 && (
+                            <optgroup label="Other Areas (Same Skill)">
+                              {otherWorkers.map(w => {
+                                const wLoc = [w.profiles?.city, w.profiles?.district].filter(Boolean).join(', ')
+                                return (
+                                  <option key={w.id} value={w.id}>
+                                    👷 {w.profiles?.name || w.phone} {wLoc ? `(${wLoc})` : ''}
+                                  </option>
+                                )
+                              })}
+                            </optgroup>
+                          )}
+                        </>
+                      )
                     })()}
                   </select>
                 </div>
