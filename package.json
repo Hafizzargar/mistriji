@@ -10,8 +10,7 @@
     "dev:web": "pnpm --filter web dev",
     "dev:api": "pnpm --filter api dev",
     "build:admin": "pnpm --filter admin build",
-    "build:web": "pnpm --filter web build",
-    "build": "pnpm run build:web"
+    "build:web": "pnpm --filter web build"
   },
   "devDependencies": {
     "typescript": "^5.4.5"
