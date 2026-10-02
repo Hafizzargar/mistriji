@@ -16,6 +16,7 @@
     "typescript": "^5.4.5"
   },
   "dependencies": {
+    "nodemailer": "^6.9.14",
     "postgres": "^3.4.9"
   },
   "packageManager": "pnpm@8.15.6"
