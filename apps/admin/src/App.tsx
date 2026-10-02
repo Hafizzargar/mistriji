@@ -8,6 +8,7 @@ import { DashboardPage } from '@/pages/DashboardPage'
 import { WorkersPage }   from '@/pages/WorkersPage'
 import { WorkerEnrollPage } from '@/pages/WorkerEnrollPage'
 import { JobsPage }      from '@/pages/JobsPage'
+import { JobDetailsPage } from '@/pages/JobDetailsPage'
 import { CustomersPage } from '@/pages/CustomersPage'
 import { CustomerEnrollPage } from '@/pages/CustomerEnrollPage'
 import { ServicesPage }  from '@/pages/ServicesPage'
@@ -58,6 +59,7 @@ export function App() {
               <Route path="/workers"        element={<WorkersPage />} />
               <Route path="/workers/enroll" element={<WorkerEnrollPage />} />
               <Route path="/jobs"           element={<JobsPage />} />
+              <Route path="/jobs/:id"       element={<JobDetailsPage />} />
               <Route path="/customers"        element={<CustomersPage />} />
               <Route path="/customers/enroll" element={<CustomerEnrollPage />} />
               <Route path="/payments"       element={<PaymentHistoryPage />} />

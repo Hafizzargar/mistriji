@@ -6,6 +6,7 @@ import { useToast } from '@/contexts/ToastContext'
 import { DataTable, Column } from '@/components/ui/DataTable'
 import { Briefcase, Plus, Trash2, Edit3, X, RefreshCw, UserCheck } from 'lucide-react'
 import { JAMMU_AREAS } from '@/lib/jammuCoordinates'
+import { Link } from 'react-router-dom'
 
 type JobStatus = 'requested' | 'pending_dispatch' | 'accepted' | 'on_way' | 'arrived' | 'working' | 'completed' | 'cancelled'
 
@@ -69,7 +70,6 @@ export function JobsPage() {
 
   // Delete and View state
   const [deletingJob, setDeletingJob] = useState<Job | null>(null)
-  const [viewingJob, setViewingJob] = useState<Job | null>(null)
 
   async function fetchJobs(nextPage = currentPage, nextPageSize = pageSize, nextFilter = filter) {
     setLoading(true)
@@ -128,7 +128,7 @@ export function JobsPage() {
 
   // Lock body scroll when any modal is open
   useEffect(() => {
-    if (showModal || viewingJob || deletingJob) {
+    if (showModal || deletingJob) {
       document.body.style.overflow = 'hidden'
     } else {
       document.body.style.overflow = 'auto'
@@ -136,7 +136,7 @@ export function JobsPage() {
     return () => {
       document.body.style.overflow = 'auto'
     }
-  }, [showModal, viewingJob, deletingJob])
+  }, [showModal, deletingJob])
 
   async function handleStatusChange(jobId: string, newStatus: JobStatus) {
     const targetJob = jobs.find(j => j.id === jobId)
@@ -169,11 +169,6 @@ export function JobsPage() {
       toast.error(err.message)
     } else {
       toast.success(`Job service changed to ${newSkill?.name || 'New Service'}`)
-      
-      // Update local state for viewingJob if it's currently open
-      if (viewingJob && viewingJob.id === jobId) {
-        setViewingJob({ ...viewingJob, skill_id: newSkillId, skills: newSkill || viewingJob.skills })
-      }
       
       await fetchJobs()
 
@@ -514,9 +509,9 @@ export function JobsPage() {
       header: 'Actions',
       sortable: false,
       render: j => (
-        <button className="btn btn-sm btn-secondary" onClick={() => setViewingJob(j)} title="View Details">
+        <Link to={`/jobs/${j.id}`} target="_blank" className="btn btn-sm btn-secondary" title="View Details">
           View Details
-        </button>
+        </Link>
       )
     }
   ]
@@ -700,226 +695,6 @@ export function JobsPage() {
             <div style={modalStyles.footer}>
               <button className="btn btn-secondary" onClick={() => setDeletingJob(null)}>Cancel</button>
               <button className="btn btn-danger" onClick={handleDeleteJob}>Delete</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* View Details Modal */}
-      {viewingJob && (
-        <div style={modalStyles.overlay} onClick={() => setViewingJob(null)}>
-          <div style={{ ...modalStyles.card, maxWidth: 620 }} onClick={e => e.stopPropagation()}>
-            <div style={modalStyles.header}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
-                <div style={{ width: 36, height: 36, borderRadius: '0.5rem', background: '#f0fdf4', color: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem' }}>
-                  {viewingJob.skills?.icon || '🔧'}
-                </div>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: '#0f172a' }}>
-                    <select
-                      style={{ fontSize: '1.05rem', fontWeight: 700, border: 'none', background: 'transparent', outline: 'none', color: 'inherit', padding: 0, cursor: 'pointer' }}
-                      value={viewingJob.skill_id}
-                      onChange={e => handleServiceChange(viewingJob.id, e.target.value)}
-                    >
-                      {skills.map(s => (
-                        <option key={s.id} value={s.id}>{s.name}</option>
-                      ))}
-                    </select>
-                  </h3>
-                  <p style={{ margin: 0, fontSize: '0.75rem', color: '#64748b' }}>
-                    Job ID: #{viewingJob.id.slice(0, 8)} • 📍 {viewingJob.area}
-                  </p>
-                </div>
-              </div>
-              <button onClick={() => setViewingJob(null)} style={modalStyles.closeBtn} title="Close"><X size={18} /></button>
-            </div>
-
-            <div style={modalStyles.body}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.875rem', background: '#f8fafc', padding: '0.875rem 1rem', borderRadius: '0.625rem', border: '1px solid #e2e8f0', fontSize: '0.85rem' }}>
-                <div>
-                  <div style={{ color: '#64748b', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase' }}>Customer</div>
-                  <div style={{ fontWeight: 700, color: '#0f172a', marginTop: '0.15rem' }}>{(viewingJob.customer as any)?.profiles?.name ?? 'Customer'}</div>
-                  <div style={{ color: '#475569', fontSize: '0.8rem' }}>+91 {(viewingJob.customer as any)?.phone}</div>
-                </div>
-                <div>
-                  <div style={{ color: '#64748b', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase' }}>Location</div>
-                  {(() => {
-                    const areaName = viewingJob.area || ''
-                    const district = JAMMU_AREAS[areaName]?.district || (viewingJob.customer as any)?.profiles?.district || ''
-                    const address = viewingJob.address || ''
-                    const isSame = areaName.toLowerCase() === district.toLowerCase()
-                    return (
-                      <>
-                        <div style={{ fontWeight: 700, color: '#0f172a', marginTop: '0.15rem' }}>
-                          📍 {isSame ? areaName : `${areaName}, ${district}`}
-                        </div>
-                        {address && address.toLowerCase() !== areaName.toLowerCase() && (
-                          <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.1rem' }}>{address}</div>
-                        )}
-                      </>
-                    )
-                  })()}
-                </div>
-              </div>
-
-              <div>
-                <div style={{ color: '#64748b', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '0.25rem' }}>Work Details & Description</div>
-                <div style={{ background: '#f8fafc', padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid #e2e8f0', fontSize: '0.85rem', color: '#334155' }}>
-                  {viewingJob.description || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>No description provided.</span>}
-                </div>
-              </div>
-              
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.875rem' }}>
-                <div>
-                  <div style={{ color: '#64748b', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '0.25rem' }}>Update Status</div>
-                  <select
-                    className="input"
-                    style={{ fontWeight: 600 }}
-                    value={viewingJob.status}
-                    onChange={e => {
-                      handleStatusChange(viewingJob.id, e.target.value as JobStatus)
-                      setViewingJob({ ...viewingJob, status: e.target.value as JobStatus })
-                    }}
-                  >
-                    <option value="requested">🕐 Requested</option>
-                    <option value="pending_dispatch">👨‍💼 Admin Reviewing</option>
-                    <option value="accepted">✅ Worker Assigned</option>
-                    <option value="on_way">🚗 On Way</option>
-                    <option value="arrived">📍 Arrived</option>
-                    <option value="working">🔧 Working</option>
-                    <option value="completed">✓ Completed</option>
-                    <option value="cancelled">✗ Cancelled</option>
-                  </select>
-                </div>
-                <div>
-                  <div style={{ color: '#64748b', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', marginBottom: '0.25rem' }}>Assign Worker</div>
-                  <select
-                    className="input"
-                    value={viewingJob.worker_id ?? ''}
-                    onChange={e => {
-                      handleAssignWorker(viewingJob.id, e.target.value)
-                      setViewingJob({ ...viewingJob, worker_id: e.target.value })
-                    }}
-                  >
-                    <option value="">-- Unassigned --</option>
-                    {(() => {
-                      const jobArea = viewingJob.area?.toLowerCase() || ''
-                      const jobSkillId = viewingJob.skill_id
-                      
-                      const custProfiles = (viewingJob.customer as any)?.profiles
-                      const custArea = custProfiles?.area?.toLowerCase() || ''
-                      const custDist = custProfiles?.district?.toLowerCase() || ''
-                      const custCity = custProfiles?.city?.toLowerCase() || ''
-                      
-                      // 1. Get all nearby/regional workers using location matching
-                      let regionalWorkers = workers.filter(w => {
-                        const p = w.profiles
-                        if (!p) return false
-                        const wArea = p.area?.toLowerCase() || ''
-                        const wDist = p.district?.toLowerCase() || ''
-                        const wCity = p.city?.toLowerCase() || ''
-                        
-                        // Infer the absolute target district for this job
-                        let targetDist = custDist
-                        const ALL_DISTRICTS = ['jammu', 'samba', 'kathua', 'udhampur', 'reasi', 'rajouri', 'poonch', 'doda', 'ramban', 'kishtwar']
-                        for (const d of ALL_DISTRICTS) {
-                          if (jobArea.includes(d)) {
-                            targetDist = d
-                            break
-                          }
-                        }
-
-                        // Strict District Isolation
-                        if (targetDist && wDist && wDist !== targetDist && !wDist.includes(targetDist) && !targetDist.includes(wDist)) {
-                          return false
-                        }
-
-                        const distMatch = (wDist && custDist && (wDist === custDist || wDist.includes(custDist) || custDist.includes(wDist))) || false
-                        const cityMatch = (wCity && custCity && (wCity === custCity || wCity.includes(custCity) || custCity.includes(wCity))) || false
-                        const areaMatch = (wArea && custArea && (wArea === custArea || wArea.includes(custArea) || custArea.includes(wArea))) || false
-                        
-                        const jobTextMatch = jobArea ? (
-                               (wArea && (wArea.includes(jobArea) || jobArea.includes(wArea))) ||
-                               (wDist && (wDist.includes(jobArea) || jobArea.includes(wDist))) ||
-                               (wCity && (wCity.includes(jobArea) || jobArea.includes(wCity)))
-                        ) : false
-
-                        return distMatch || cityMatch || areaMatch || jobTextMatch
-                      })
-
-                      // Always include the currently assigned worker
-                      const assignedWorker = workers.find(w => w.id === viewingJob.worker_id)
-                      if (assignedWorker && !regionalWorkers.find(w => w.id === assignedWorker.id)) {
-                        regionalWorkers = [assignedWorker, ...regionalWorkers]
-                      }
-                      
-                      // 2. Split regional workers into those who have the required skill, and those who don't
-                      const matchingSkillWorkers = regionalWorkers.filter(w => (w as any).worker_skills?.some((ws: any) => ws.skill_id === jobSkillId))
-                      const otherSkillWorkers = regionalWorkers.filter(w => !matchingSkillWorkers.find(mw => mw.id === w.id))
-
-                      return (
-                        <>
-                          {matchingSkillWorkers.length > 0 && (
-                            <optgroup label="Nearby Workers (Matching Skill)">
-                              {matchingSkillWorkers.map(w => {
-                                const wLoc = [w.profiles?.city, w.profiles?.district].filter(Boolean).join(', ')
-                                return (
-                                  <option key={w.id} value={w.id}>
-                                    👷 {w.profiles?.name || w.phone} {wLoc ? `(${wLoc})` : ''}
-                                  </option>
-                                )
-                              })}
-                            </optgroup>
-                          )}
-                          {otherSkillWorkers.length > 0 && (
-                            <optgroup label="Nearby Workers (Other Skills)">
-                              {otherSkillWorkers.map(w => {
-                                const wLoc = [w.profiles?.city, w.profiles?.district].filter(Boolean).join(', ')
-                                const wSkills = (w as any).worker_skills?.map((ws: any) => skills.find(s => s.id === ws.skill_id)?.name).filter(Boolean).join(', ') || 'No Skills'
-                                return (
-                                  <option key={w.id} value={w.id}>
-                                    👷 {w.profiles?.name || w.phone} - {wSkills} {wLoc ? `(${wLoc})` : ''}
-                                  </option>
-                                )
-                              })}
-                            </optgroup>
-                          )}
-                        </>
-                      )
-                    })()}
-                  </select>
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.875rem' }}>
-                <div style={{ background: '#f8fafc', padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid #e2e8f0' }}>
-                  <div style={{ color: '#64748b', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase' }}>Price & Payment</div>
-                  <div style={{ fontWeight: 800, fontSize: '1.2rem', color: '#16a34a', marginTop: '0.15rem' }}>₹{viewingJob.price ?? 0}</div>
-                  <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.2rem' }}>
-                    Method: <strong style={{ color: '#0f172a' }}>{viewingJob.payment_method?.toUpperCase() || 'CASH'}</strong> • Status: <strong style={{ color: '#0f172a' }}>{viewingJob.payment_status?.toUpperCase() || 'UNPAID'}</strong>
-                  </div>
-                </div>
-                <div style={{ background: '#f8fafc', padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid #e2e8f0' }}>
-                  <div style={{ color: '#64748b', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase' }}>Timing Details</div>
-                  <div style={{ fontSize: '0.75rem', marginTop: '0.15rem', color: '#334155' }}>
-                    <span style={{ color: '#64748b' }}>Requested:</span> <strong>{new Date(viewingJob.created_at).toLocaleString()}</strong>
-                  </div>
-                  {viewingJob.preferred_time && (
-                    <div style={{ fontSize: '0.75rem', marginTop: '0.1rem', color: '#334155' }}>
-                      <span style={{ color: '#64748b' }}>Preferred:</span> <strong>{new Date(viewingJob.preferred_time).toLocaleString()}</strong>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div style={modalStyles.footer}>
-              <button className="btn btn-danger" style={{ marginRight: 'auto' }} onClick={() => { setDeletingJob(viewingJob); setViewingJob(null) }}>
-                <Trash2 size={15} /> Delete Job
-              </button>
-              <button className="btn btn-secondary" onClick={() => setViewingJob(null)}>
-                Close
-              </button>
             </div>
           </div>
         </div>
