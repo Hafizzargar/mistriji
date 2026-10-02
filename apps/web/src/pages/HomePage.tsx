@@ -183,7 +183,6 @@ export function HomePage({ currentArea, onAreaChange }: { currentArea: string; o
         @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
         .hp-input { width: 100%; height: 50px; padding: 0 1rem; background: #0f172a; border: 1.5px solid rgba(255,255,255,0.1); border-radius: 0.75rem; color: #e2e8f0; font-size: 1rem; outline: none; transition: border-color 0.2s; box-sizing: border-box; }
         .hp-input:focus { border-color: rgba(129,140,248,0.7); }
-        .hp-select { width: 100%; height: 50px; padding: 0 1rem; background: #0f172a; border: 1.5px solid rgba(255,255,255,0.1); border-radius: 0.75rem; color: #e2e8f0; font-size: 1rem; outline: none; appearance: none; cursor: pointer; }
         .svc-card { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.4rem; padding: 0.875rem 0.5rem; border: 1.5px solid rgba(255,255,255,0.08); border-radius: 1rem; background: rgba(255,255,255,0.03); color: rgba(255,255,255,0.7); font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: all 0.15s ease; text-align: center; }
         .svc-card:hover { border-color: rgba(129,140,248,0.5); background: rgba(79,70,229,0.12); color: #c7d2fe; }
         .svc-card.sel { border-color: rgba(129,140,248,0.8); background: rgba(79,70,229,0.25); color: #c7d2fe; box-shadow: 0 0 0 3px rgba(99,102,241,0.2); }
@@ -268,22 +267,46 @@ export function HomePage({ currentArea, onAreaChange }: { currentArea: string; o
                 <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.1)' }} />
               </div>
 
-              {/* Dropdown */}
-              <div style={{ position: 'relative' }}>
-                <MapPin size={16} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#818cf8', pointerEvents: 'none', zIndex: 1 }} />
-                <select
-                  className="hp-select"
-                  value={allowedDistricts.includes(currentArea) ? currentArea : (allowedDistricts[0] || '')}
-                  onChange={e => { onAreaChange(e.target.value); setUseGps(false) }}
-                  style={{ paddingLeft: '2.5rem' }}
-                >
-                  {allowedDistricts.length === 0
-                    ? <option value="" disabled>Loading areas…</option>
-                    : allowedDistricts.map(d => <option key={d} value={d} style={{ background: '#0f172a' }}>{d}</option>)
-                  }
-                </select>
-                <div style={{ position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.4)', pointerEvents: 'none', fontSize: '0.75rem' }}>▼</div>
-              </div>
+              {/* District Grid */}
+              {allowedDistricts.length === 0 ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'rgba(255,255,255,0.35)', fontSize: '0.875rem', padding: '0.75rem 0' }}>
+                  <div style={{ width: 14, height: 14, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.2)', borderTopColor: '#818cf8', animation: 'spin 0.8s linear infinite' }} />
+                  Loading areas…
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' }}>
+                  {allowedDistricts.map(d => {
+                    const sel = (allowedDistricts.includes(currentArea) ? currentArea : allowedDistricts[0]) === d
+                    return (
+                      <button
+                        key={d}
+                        type="button"
+                        onClick={() => { onAreaChange(d); setUseGps(false) }}
+                        style={{
+                          padding: '0.75rem 1rem',
+                          background: sel ? 'rgba(79,70,229,0.3)' : 'rgba(255,255,255,0.04)',
+                          border: `1.5px solid ${sel ? 'rgba(129,140,248,0.7)' : 'rgba(255,255,255,0.08)'}`,
+                          borderRadius: '0.875rem',
+                          color: sel ? '#c7d2fe' : 'rgba(255,255,255,0.6)',
+                          fontWeight: sel ? 800 : 600,
+                          fontSize: '0.92rem',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.5rem',
+                          transition: 'all 0.15s',
+                          boxShadow: sel ? '0 0 0 3px rgba(99,102,241,0.2)' : 'none',
+                          textAlign: 'left',
+                        }}
+                      >
+                        <span style={{ fontSize: '1rem', flexShrink: 0 }}>📍</span>
+                        <span style={{ lineHeight: 1.25 }}>{d}</span>
+                        {sel && <span style={{ marginLeft: 'auto', fontSize: '0.7rem', background: 'rgba(129,140,248,0.3)', color: '#a5b4fc', padding: '2px 8px', borderRadius: 99, flexShrink: 0 }}>✓</span>}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
 
               {/* PIN search */}
               {!showPinSearch ? (
