@@ -411,6 +411,7 @@ export function JobsPage() {
         }
         
         const otherWorkers = skilledWorkers.filter(w => !matchingWorkers.find(mw => mw.id === w.id))
+        const remainingWorkers = workers.filter(w => !skilledWorkers.find(sw => sw.id === w.id) && !matchingWorkers.find(mw => mw.id === w.id))
         
         return (
           <select
@@ -439,6 +440,19 @@ export function JobsPage() {
                   return (
                     <option key={w.id} value={w.id}>
                       👷 {w.profiles?.name || w.phone} {wLoc ? `(${wLoc})` : ''}
+                    </option>
+                  )
+                })}
+              </optgroup>
+            )}
+            {remainingWorkers.length > 0 && (
+              <optgroup label="All Other Workers (Different Skill)">
+                {remainingWorkers.map(w => {
+                  const wLoc = [w.profiles?.city, w.profiles?.district].filter(Boolean).join(', ')
+                  const wSkills = (w as any).worker_skills?.map((ws: any) => skills.find(s => s.id === ws.skill_id)?.name).filter(Boolean).join(', ') || 'No Skills'
+                  return (
+                    <option key={w.id} value={w.id}>
+                      👷 {w.profiles?.name || w.phone} - {wSkills} {wLoc ? `(${wLoc})` : ''}
                     </option>
                   )
                 })}
@@ -807,6 +821,7 @@ export function JobsPage() {
                       }
                       
                       const otherWorkers = skilledWorkers.filter(w => !matching.find(mw => mw.id === w.id))
+                      const remainingWorkers = workers.filter(w => !skilledWorkers.find(sw => sw.id === w.id) && !matching.find(mw => mw.id === w.id))
 
                       return (
                         <>
@@ -829,6 +844,19 @@ export function JobsPage() {
                                 return (
                                   <option key={w.id} value={w.id}>
                                     👷 {w.profiles?.name || w.phone} {wLoc ? `(${wLoc})` : ''}
+                                  </option>
+                                )
+                              })}
+                            </optgroup>
+                          )}
+                          {remainingWorkers.length > 0 && (
+                            <optgroup label="All Other Workers (Different Skill)">
+                              {remainingWorkers.map(w => {
+                                const wLoc = [w.profiles?.city, w.profiles?.district].filter(Boolean).join(', ')
+                                const wSkills = (w as any).worker_skills?.map((ws: any) => skills.find(s => s.id === ws.skill_id)?.name).filter(Boolean).join(', ') || 'No Skills'
+                                return (
+                                  <option key={w.id} value={w.id}>
+                                    👷 {w.profiles?.name || w.phone} - {wSkills} {wLoc ? `(${wLoc})` : ''}
                                   </option>
                                 )
                               })}
