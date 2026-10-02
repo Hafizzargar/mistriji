@@ -218,26 +218,6 @@ export function HomePage({ currentArea, onAreaChange }: { currentArea: string; o
           z-index: 0;
         }
 
-        /* ── NAVBAR ── */
-        .hp-nav {
-          position: relative; z-index: 10;
-          display: flex; align-items: center; justify-content: space-between;
-          padding: 0.875rem 2rem;
-          background: rgba(10,10,30,0.6);
-          backdrop-filter: blur(16px);
-          border-bottom: 1px solid rgba(255,255,255,0.07);
-        }
-        .hp-nav-logo { display:flex; align-items:center; gap:0.6rem; color:#fff; font-weight:900; font-size:1.25rem; text-decoration:none; }
-        .hp-nav-logo-icon { width:36px; height:36px; background:linear-gradient(135deg,#4f46e5,#7c3aed); border-radius:0.625rem; display:flex; align-items:center; justify-content:center; font-size:1.1rem; }
-        .hp-nav-links { display:flex; align-items:center; gap:1.75rem; }
-        .hp-nav-link { color:rgba(255,255,255,0.6); font-size:0.875rem; font-weight:500; text-decoration:none; transition:color 0.2s; cursor:pointer; background:none; border:none; }
-        .hp-nav-link:hover { color:#fff; }
-        .hp-nav-actions { display:flex; align-items:center; gap:0.625rem; }
-        .hp-nav-login { padding:0.5rem 1.125rem; background:transparent; border:1.5px solid rgba(255,255,255,0.25); border-radius:0.625rem; color:#fff; font-size:0.875rem; font-weight:700; cursor:pointer; transition:all 0.2s; }
-        .hp-nav-login:hover { border-color:rgba(255,255,255,0.5); background:rgba(255,255,255,0.05); }
-        .hp-nav-signup { padding:0.5rem 1.125rem; background:linear-gradient(135deg,#4f46e5,#7c3aed); border:none; border-radius:0.625rem; color:#fff; font-size:0.875rem; font-weight:700; cursor:pointer; transition:opacity 0.2s; }
-        .hp-nav-signup:hover { opacity:0.9; }
-
         /* ── MAIN BODY ── */
         .hp-body {
           position: relative; z-index: 1;
@@ -443,32 +423,6 @@ export function HomePage({ currentArea, onAreaChange }: { currentArea: string; o
 
       <div className="hp-page">
 
-        {/* ── NAVBAR ── */}
-        <nav className="hp-nav">
-          <div className="hp-nav-logo">
-            <div className="hp-nav-logo-icon">🔧</div>
-            Mistri
-          </div>
-          <div className="hp-nav-links">
-            <button className="hp-nav-link">Home</button>
-            <button className="hp-nav-link">Find a Service</button>
-            <button className="hp-nav-link">How It Works</button>
-            <button className="hp-nav-link">For Workers</button>
-            <button className="hp-nav-link">Help</button>
-          </div>
-          <div className="hp-nav-actions">
-            {!isLoggedIn ? (
-              <>
-                <button onClick={openLoginModal} className="hp-nav-login">Login</button>
-                <button onClick={openLoginModal} className="hp-nav-signup">Sign Up</button>
-              </>
-            ) : (
-              <div style={{ display:'flex', alignItems:'center', gap:'0.4rem', color:'#6ee7b7', fontSize:'0.875rem', fontWeight:700 }}>
-                <CheckCircle size={15} /> {customer?.name?.split(' ')[0] || 'Logged in'}
-              </div>
-            )}
-          </div>
-        </nav>
 
         {/* ── BODY ── */}
         <div className="hp-body">
