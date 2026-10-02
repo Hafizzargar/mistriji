@@ -160,6 +160,36 @@ export function JobsPage() {
     }
   }
 
+  async function handleServiceChange(jobId: string, newSkillId: string) {
+    const targetJob = jobs.find(j => j.id === jobId)
+    const newSkill = skills.find(s => s.id === newSkillId)
+    
+    const { error: err } = await supabase.from('jobs').update({ skill_id: newSkillId }).eq('id', jobId)
+    if (err) {
+      toast.error(err.message)
+    } else {
+      toast.success(`Job service changed to ${newSkill?.name || 'New Service'}`)
+      
+      // Update local state for viewingJob if it's currently open
+      if (viewingJob && viewingJob.id === jobId) {
+        setViewingJob({ ...viewingJob, skill_id: newSkillId, skills: newSkill || viewingJob.skills })
+      }
+      
+      await fetchJobs()
+
+      const jobIdentifier = targetJob ? `#${targetJob.id.slice(0, 8)} (${targetJob.skills?.name || 'Job'})` : `#${jobId.slice(0, 8)}`
+      await logAdminAction({
+        actor: currentAdmin,
+        action: 'Job Service Updated',
+        targetType: 'job',
+        targetId: jobId,
+        details: `updated service of job ${jobIdentifier} to "${newSkill?.name || newSkillId}"`,
+        oldValue: targetJob?.skill_id,
+        newValue: newSkillId
+      })
+    }
+  }
+
   async function notifyCustomerWorkerAssigned(jobId: string) {
     try {
       const { data: jData } = await supabase
@@ -329,10 +359,18 @@ export function JobsPage() {
       searchValue: j => `${j.skills?.name ?? ''} ${j.skills?.icon ?? ''}`,
       render: j => (
         <div>
-          <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-            <span>{j.skills?.icon}</span>
-            <span>{j.skills?.name ?? '—'}</span>
-          </div>
+          <select
+            className="input"
+            style={{ padding: '0.1rem 0.4rem', fontSize: '0.8rem', fontWeight: 600, maxWidth: '140px', height: 'auto', border: '1px solid #e2e8f0' }}
+            value={j.skill_id}
+            onChange={e => handleServiceChange(j.id, e.target.value)}
+          >
+            {skills.map(s => (
+              <option key={s.id} value={s.id}>
+                {s.icon} {s.name}
+              </option>
+            ))}
+          </select>
           <div style={{ fontSize: '0.72rem', color: 'var(--gray-500)', marginTop: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.25rem', whiteSpace: 'nowrap' }}>
             <span style={{ display: 'inline-block', width: 12, height: 12, opacity: 0.7 }}>🕒</span>
             {new Date(j.created_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
@@ -678,7 +716,15 @@ export function JobsPage() {
                 </div>
                 <div>
                   <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: '#0f172a' }}>
-                    {viewingJob.skills?.name ?? 'Job Booking Details'}
+                    <select
+                      style={{ fontSize: '1.05rem', fontWeight: 700, border: 'none', background: 'transparent', outline: 'none', color: 'inherit', padding: 0, cursor: 'pointer' }}
+                      value={viewingJob.skill_id}
+                      onChange={e => handleServiceChange(viewingJob.id, e.target.value)}
+                    >
+                      {skills.map(s => (
+                        <option key={s.id} value={s.id}>{s.name}</option>
+                      ))}
+                    </select>
                   </h3>
                   <p style={{ margin: 0, fontSize: '0.75rem', color: '#64748b' }}>
                     Job ID: #{viewingJob.id.slice(0, 8)} • 📍 {viewingJob.area}
