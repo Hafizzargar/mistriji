@@ -243,10 +243,12 @@ export function HomePage({ currentArea, onAreaChange }: { currentArea: string; o
           position: relative; z-index: 1;
           flex: 1;
           display: flex;
-          align-items: center;
+          align-items: flex-start;
           justify-content: flex-start;
-          padding: 2rem 2rem 1.5rem 3rem;
+          padding: 1.5rem 2rem 1.5rem 3rem;
           gap: 2rem;
+          overflow-y: auto;
+          min-height: 0;
         }
 
         /* ── FORM CARD ── */
@@ -255,12 +257,17 @@ export function HomePage({ currentArea, onAreaChange }: { currentArea: string; o
           backdrop-filter: blur(24px);
           border: 1px solid rgba(255,255,255,0.1);
           border-radius: 1.5rem;
-          padding: 2rem;
+          padding: 1.5rem;
           width: 100%;
           max-width: 440px;
           box-shadow: 0 24px 64px rgba(0,0,0,0.5);
           flex-shrink: 0;
+          overflow-y: auto;
+          max-height: calc(100dvh - 120px);
+          scrollbar-width: none;
+          -ms-overflow-style: none;
         }
+        .hp-card::-webkit-scrollbar { display: none; }
 
         /* ── STEP INDICATOR ── */
         .hp-steps { display:flex; align-items:center; margin-bottom:1.75rem; }
