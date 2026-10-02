@@ -531,6 +531,43 @@ export function CustomersPage() {
             </div>
           </div>
         </div>
+
+        {deletingCustomer && (
+          <div style={{
+            position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.65)', backdropFilter: 'blur(4px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem'
+          }} onClick={() => setDeletingCustomer(null)}>
+            <div style={{
+              background: '#fff', borderRadius: '0.875rem', width: '100%', maxWidth: 420,
+              display: 'flex', flexDirection: 'column', overflow: 'hidden'
+            }} onClick={e => e.stopPropagation()}>
+              <div style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                padding: '1rem 1.25rem', borderBottom: '1px solid #e2e8f0', background: '#f8fafc'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <div style={{ width: 34, height: 34, borderRadius: '0.5rem', background: '#fef2f2', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Trash2 size={18} />
+                  </div>
+                  <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: '#991b1b' }}>Delete Customer?</h3>
+                </div>
+                <button onClick={() => setDeletingCustomer(null)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#64748b' }}>
+                  <X size={16} />
+                </button>
+              </div>
+              <div style={{ padding: '1rem 1.25rem', fontSize: '0.85rem', color: '#475569', lineHeight: 1.5 }}>
+                Are you sure you want to delete customer <strong>{deletingCustomer.profiles?.name || deletingCustomer.phone}</strong>?
+              </div>
+              <div style={{
+                padding: '0.875rem 1.25rem', borderTop: '1px solid #e2e8f0', background: '#f8fafc',
+                display: 'flex', justifyContent: 'flex-end', gap: '0.5rem'
+              }}>
+                <button className="btn btn-secondary" onClick={() => setDeletingCustomer(null)}>Cancel</button>
+                <button className="btn btn-danger" onClick={handleDelete}>Delete</button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     )
   }
@@ -585,43 +622,6 @@ export function CustomersPage() {
         emptyMessage="No customers found"
         emptyIcon="👤"
       />
-
-      {deletingCustomer && (
-        <div style={{
-          position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.65)', backdropFilter: 'blur(4px)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem'
-        }} onClick={() => setDeletingCustomer(null)}>
-          <div style={{
-            background: '#fff', borderRadius: '0.875rem', width: '100%', maxWidth: 420,
-            display: 'flex', flexDirection: 'column', overflow: 'hidden'
-          }} onClick={e => e.stopPropagation()}>
-            <div style={{
-              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-              padding: '1rem 1.25rem', borderBottom: '1px solid #e2e8f0', background: '#f8fafc'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <div style={{ width: 34, height: 34, borderRadius: '0.5rem', background: '#fef2f2', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Trash2 size={18} />
-                </div>
-                <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: '#991b1b' }}>Delete Customer?</h3>
-              </div>
-              <button onClick={() => setDeletingCustomer(null)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#64748b' }}>
-                <X size={16} />
-              </button>
-            </div>
-            <div style={{ padding: '1rem 1.25rem', fontSize: '0.85rem', color: '#475569', lineHeight: 1.5 }}>
-              Are you sure you want to delete customer <strong>{deletingCustomer.profiles?.name || deletingCustomer.phone}</strong>?
-            </div>
-            <div style={{
-              padding: '0.875rem 1.25rem', borderTop: '1px solid #e2e8f0', background: '#f8fafc',
-              display: 'flex', justifyContent: 'flex-end', gap: '0.5rem'
-            }}>
-              <button className="btn btn-secondary" onClick={() => setDeletingCustomer(null)}>Cancel</button>
-              <button className="btn btn-danger" onClick={handleDelete}>Delete</button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

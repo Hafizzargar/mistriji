@@ -929,8 +929,32 @@ export function WorkersPage() {
               </div>
             </div>
 
+            </div>
+
           </div>
         </div>
+
+        {deletingWorker && (
+          <div style={modalStyles.overlay} onClick={() => setDeletingWorker(null)}>
+            <div style={modalStyles.card} onClick={e => e.stopPropagation()}>
+              <div style={modalStyles.header}>
+                <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#0f172a' }}>Delete Worker</h3>
+                <button onClick={() => setDeletingWorker(null)} style={modalStyles.closeBtn}><X size={18} /></button>
+              </div>
+              <div style={modalStyles.body}>
+                <p style={{ margin: 0, fontSize: '0.9rem', color: '#475569' }}>
+                  Are you sure you want to delete worker <strong>{deletingWorker.profiles?.name}</strong>? This action cannot be undone.
+                </p>
+              </div>
+              <div style={modalStyles.footer}>
+                <button className="btn btn-secondary" onClick={() => setDeletingWorker(null)}>Cancel</button>
+                <button className="btn btn-danger" onClick={handleDeleteWorker} disabled={deleting}>
+                  {deleting ? 'Deleting...' : 'Delete Worker'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     )
   }
@@ -986,29 +1010,6 @@ export function WorkersPage() {
           },
         }}
       />
-
-      {/* Delete Modal State */}
-      {deletingWorker && (
-        <div style={modalStyles.overlay} onClick={() => setDeletingWorker(null)}>
-          <div style={modalStyles.card} onClick={e => e.stopPropagation()}>
-            <div style={modalStyles.header}>
-              <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#0f172a' }}>Delete Worker</h3>
-              <button onClick={() => setDeletingWorker(null)} style={modalStyles.closeBtn}><X size={18} /></button>
-            </div>
-            <div style={modalStyles.body}>
-              <p style={{ margin: 0, fontSize: '0.9rem', color: '#475569' }}>
-                Are you sure you want to delete worker <strong>{deletingWorker.profiles?.name}</strong>? This action cannot be undone.
-              </p>
-            </div>
-            <div style={modalStyles.footer}>
-              <button className="btn btn-secondary" onClick={() => setDeletingWorker(null)}>Cancel</button>
-              <button className="btn btn-danger" onClick={handleDeleteWorker} disabled={deleting}>
-                {deleting ? 'Deleting...' : 'Delete Worker'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
