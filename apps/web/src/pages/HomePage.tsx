@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Navigate, useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { useToast } from '@/contexts/ToastContext'
 import { useCustomerAuth } from '@/contexts/CustomerAuthContext'
@@ -50,6 +50,7 @@ function Steps({ current }: { current: number }) {
 
 export function HomePage({ currentArea, onAreaChange }: { currentArea: string; onAreaChange: (a: string) => void }) {
   const toast = useToast()
+  const navigate = useNavigate()
   const { isLoggedIn, customer, openLoginModal, openRoleModal } = useCustomerAuth()
 
   const [skills, setSkills] = useState<Skill[]>([])
@@ -252,9 +253,9 @@ export function HomePage({ currentArea, onAreaChange }: { currentArea: string; o
             Status: Admin Reviewing
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            <a href="/my-bookings" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.75rem', background: 'linear-gradient(135deg,#4f46e5,#7c3aed)', color: '#fff', fontWeight: 800, fontSize: '0.875rem', borderRadius: '0.875rem', textDecoration: 'none', boxShadow: '0 8px 24px rgba(79,70,229,0.4)', transition: 'all 0.2s' }}>
+            <button onClick={() => navigate('/my-bookings')} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.75rem', background: 'linear-gradient(135deg,#4f46e5,#7c3aed)', color: '#fff', fontWeight: 800, fontSize: '0.875rem', borderRadius: '0.875rem', border: 'none', cursor: 'pointer', boxShadow: '0 8px 24px rgba(79,70,229,0.4)', transition: 'all 0.2s', width: '100%' }}>
               Track My Request <ChevronRight size={15} />
-            </a>
+            </button>
             <button onClick={reset} style={{ padding: '0.68rem', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.7)', fontWeight: 700, fontSize: '0.825rem', borderRadius: '0.875rem', cursor: 'pointer' }}>
               Submit Another Request
             </button>
