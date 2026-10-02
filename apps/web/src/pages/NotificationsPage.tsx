@@ -20,7 +20,7 @@ export interface AppNotification {
 }
 
 export function NotificationsPage() {
-  const { customer, isLoggedIn } = useCustomerAuth()
+  const { customer, isLoggedIn, openLoginModal } = useCustomerAuth()
   const toast = useToast()
   const navigate = useNavigate()
   
@@ -28,6 +28,12 @@ export function NotificationsPage() {
   const [loading, setLoading] = useState(true)
   const [filterType, setFilterType] = useState<'all' | 'unread' | 'chat_message' | 'job_update'>('all')
   const [searchQuery, setSearchQuery] = useState('')
+
+  useEffect(() => {
+    if (!isLoggedIn) {
+      openLoginModal()
+    }
+  }, [isLoggedIn, openLoginModal])
 
   useEffect(() => {
     if (!isLoggedIn || !customer?.id) return
@@ -196,8 +202,8 @@ export function NotificationsPage() {
         <p style={{ color: '#6b7280', fontSize: '0.95rem', marginBottom: '1.75rem' }}>
           Please log in to view your real-time booking updates and support replies.
         </p>
-        <button onClick={() => navigate('/')} className="btn btn-primary" style={{ fontWeight: 700, borderRadius: '0.75rem', padding: '0.625rem 1.5rem' }}>
-          Back to Home
+        <button onClick={openLoginModal} className="btn btn-primary" style={{ fontWeight: 700, borderRadius: '0.75rem', padding: '0.625rem 1.5rem' }}>
+          Login to Continue
         </button>
       </div>
     )

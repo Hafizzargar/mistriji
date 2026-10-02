@@ -247,99 +247,51 @@ export function CustomerLoginModal() {
     <>
       <style>{`
         @keyframes slideUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
-        .customer-modal-left-panel { display: flex; }
+        
+        .cust-modal-wrapper {
+          position: fixed; inset: 0;
+          background: rgba(15, 23, 42, 0.7);
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
+          display: flex; align-items: center; justify-content: center;
+          z-index: 2500; padding: 1rem;
+          overscroll-behavior: contain;
+        }
+
+        .cust-modal-box {
+          display: flex;
+          flex-direction: column;
+          border-radius: 1.25rem;
+          background: #fff;
+          overflow: hidden;
+          max-width: 440px; width: 100%;
+          box-shadow: 0 25px 50px -12px rgba(0,0,0,0.35);
+          animation: slideUp 0.3s cubic-bezier(0.34, 1.2, 0.64, 1);
+          max-height: 90vh;
+          position: relative;
+        }
+
         @media (max-width: 600px) {
-          .customer-modal-left-panel { display: none !important; }
-          .cust-modal-box { border-radius: 1.25rem !important; max-height: 96dvh !important; }
+          .cust-modal-box { 
+            border-radius: 1.25rem 1.25rem 0 0; 
+            max-height: 92vh; 
+            margin-top: auto;
+          }
+          .cust-modal-wrapper { 
+            align-items: flex-end; 
+            padding: 0; 
+          }
         }
       `}</style>
     <div
+      className="cust-modal-wrapper"
       onClick={handleClose}
-      style={{
-        position: 'fixed', inset: 0,
-        background: 'rgba(15, 23, 42, 0.8)',
-        backdropFilter: 'blur(12px)',
-        WebkitBackdropFilter: 'blur(12px)',
-        display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
-        zIndex: 2000, padding: '0',
-        overscrollBehavior: 'contain',
-      }}
     >
       <div
         className="cust-modal-box"
         onClick={e => e.stopPropagation()}
-        style={{
-          display: 'flex',
-          borderRadius: '1.5rem 1.5rem 0 0',
-          overflow: 'hidden',
-          maxWidth: 780, width: '100%',
-          boxShadow: '0 -8px 40px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.08)',
-          animation: 'slideUp 0.3s cubic-bezier(0.34, 1.2, 0.64, 1)',
-          maxHeight: 'min(92vh, 680px)',
-        }}
       >
-        {/* ── LEFT PANEL (brand) ────────────────────────── */}
-        <div
-          className="customer-modal-left-panel"
-          style={{
-            width: 280, flexShrink: 0,
-            background: 'linear-gradient(160deg, #312e81 0%, #1e1b4b 50%, #0f172a 100%)',
-            padding: '2.5rem 2rem',
-            display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
-            position: 'relative', overflow: 'hidden',
-          }}
-        >
-          {/* Glow orbs */}
-          <div style={{ position: 'absolute', top: -60, right: -60, width: 180, height: 180, borderRadius: '50%', background: 'radial-gradient(circle, rgba(99,102,241,0.35) 0%, transparent 70%)', pointerEvents: 'none' }} />
-          <div style={{ position: 'absolute', bottom: -40, left: -40, width: 140, height: 140, borderRadius: '50%', background: 'radial-gradient(circle, rgba(167,139,250,0.2) 0%, transparent 70%)', pointerEvents: 'none' }} />
-
-          <div style={{ position: 'relative', zIndex: 1 }}>
-            {/* Logo */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', marginBottom: '2rem' }}>
-              <div style={{
-                width: 40, height: 40, borderRadius: '0.75rem',
-                background: 'linear-gradient(135deg, #4f46e5, #818cf8)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                boxShadow: '0 4px 16px rgba(79,70,229,0.4)',
-                fontSize: '1.25rem',
-              }}>🔧</div>
-              <div>
-                <div style={{ color: '#fff', fontWeight: 800, fontSize: '1.1rem', lineHeight: 1 }}>MistriJi</div>
-                <div style={{ color: '#a5b4fc', fontSize: '0.7rem', fontWeight: 500, marginTop: '1px' }}>Managed Service</div>
-              </div>
-            </div>
-
-            <h2 style={{ color: '#fff', fontWeight: 800, fontSize: '1.3rem', lineHeight: 1.3, marginBottom: '0.75rem' }}>
-              Your trusted mistri,<br />on demand.
-            </h2>
-            <p style={{ color: '#94a3b8', fontSize: '0.8rem', lineHeight: 1.65, marginBottom: '1.75rem' }}>
-              Submit a request and our team assigns the best verified worker in your area.
-            </p>
-
-            {/* Feature list */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
-              {features.map(f => (
-                <div key={f.text} style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
-                  <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(99,102,241,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem', flexShrink: 0 }}>
-                    {f.icon}
-                  </div>
-                  <span style={{ color: '#cbd5e1', fontSize: '0.8rem', fontWeight: 500 }}>{f.text}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Bottom trust badge */}
-          <div style={{ position: 'relative', zIndex: 1, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '0.875rem', padding: '0.75rem 1rem' }}>
-            <div style={{ color: '#a5b4fc', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '0.25rem' }}>Serving</div>
-            <div style={{ color: '#fff', fontWeight: 700, fontSize: '0.875rem' }}>Jammu &amp; Kashmir</div>
-            <div style={{ color: '#64748b', fontSize: '0.725rem', marginTop: '0.1rem' }}>All districts, verified workers</div>
-          </div>
-        </div>
-
-        {/* ── RIGHT PANEL (form) ────────────────────────── */}
         <div style={{
-          flex: 1, background: '#fff',
           display: 'flex', flexDirection: 'column',
           overflowY: 'auto',
           position: 'relative',

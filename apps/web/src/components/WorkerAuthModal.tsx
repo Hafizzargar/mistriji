@@ -506,37 +506,44 @@ export function WorkerAuthModal({
     }
   }
 
+  if (!isOpen) return null
+
   return (
-    <div
-      onClick={handleClose}
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(15, 23, 42, 0.7)',
-        backdropFilter: 'blur(8px)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 2000,
-        padding: '1rem',
-        overscrollBehavior: 'contain',
-        touchAction: 'none',
-      }}
-    >
+    <>
+      <style>{`
+        .worker-modal-wrapper {
+          position: fixed; inset: 0;
+          background: rgba(15, 23, 42, 0.7);
+          backdrop-filter: blur(8px);
+          display: flex; align-items: center; justify-content: center;
+          z-index: 2000; padding: 1rem;
+          overscroll-behavior: contain;
+          touch-action: none;
+        }
+        .worker-modal-box {
+          background: #fff;
+          border-radius: 1.25rem;
+          max-width: 420px; width: 100%;
+          padding: 1.5rem;
+          box-shadow: 0 25px 50px -12px rgba(0,0,0,0.35);
+          animation: slideUp 0.2s ease;
+          display: flex; flex-direction: column;
+          max-height: 90vh;
+          overflow-y: auto;
+        }
+        @media (max-width: 600px) {
+          .worker-modal-wrapper { align-items: flex-end; padding: 0; }
+          .worker-modal-box { border-radius: 1.25rem 1.25rem 0 0; max-height: 92vh; margin-top: auto; padding-bottom: max(1.5rem, env(safe-area-inset-bottom)); }
+        }
+      `}</style>
       <div
-        onClick={e => e.stopPropagation()}
-        style={{
-          background: '#fff',
-          borderRadius: '1.25rem',
-          maxWidth: 420,
-          width: '100%',
-          padding: '1.5rem',
-          boxShadow: '0 25px 50px -12px rgba(0,0,0,0.35)',
-          animation: 'slideUp 0.2s ease',
-          display: 'flex',
-          flexDirection: 'column',
-        }}
+        className="worker-modal-wrapper"
+        onClick={handleClose}
       >
+        <div
+          className="worker-modal-box"
+          onClick={e => e.stopPropagation()}
+        >
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.875rem' }}>
           <div>
@@ -1122,5 +1129,6 @@ export function WorkerAuthModal({
         </div>
       </div>
     </div>
+    </>
   )
 }

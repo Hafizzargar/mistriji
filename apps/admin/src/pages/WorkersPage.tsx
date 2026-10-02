@@ -87,6 +87,7 @@ export function WorkersPage() {
           setEditExp(workerToView.worker_profiles?.experience_years || 0)
           setEditStatus(workerToView.worker_profiles?.verification_status || 'pending')
           setEditAccountStatus(workerToView.status || 'active')
+          setEditRole((workerToView as any).role || 'worker')
           setEditSuspensionReason(getWorkerSuspensionReason(workerToView))
           setEditPhoneType(workerToView.worker_profiles?.phone_type || 'smartphone')
           
@@ -114,6 +115,7 @@ export function WorkersPage() {
   const [editExp, setEditExp]             = useState<number>(0)
   const [editStatus, setEditStatus]       = useState<VerificationStatus>('pending')
   const [editAccountStatus, setEditAccountStatus] = useState<string>('active')
+  const [editRole, setEditRole]           = useState<string>('worker')
   const [editSuspensionReason, setEditSuspensionReason] = useState<string>('')
   const [editPhoneType, setEditPhoneType] = useState<PhoneType>('smartphone')
   const [editSkills, setEditSkills]       = useState<string[]>([])
@@ -142,7 +144,7 @@ export function WorkersPage() {
     let query = supabase
       .from('users')
       .select(`
-        id, phone, email, status, created_at,
+        id, phone, email, status, created_at, role,
         profiles (name, area, photo_url),
         worker_profiles (verification_status, is_available, experience_years, phone_type, enrollment_method),
         worker_skills (skill_id, skills (id, name, icon)),
@@ -359,7 +361,7 @@ export function WorkersPage() {
         ? `suspension_reason:${editSuspensionReason.trim() || 'Suspended by Administrator'}`
         : null
 
-      const { error: uErr } = await supabase.from('users').update({ phone: cleanPhone, email: editEmail.trim() || null, status: editAccountStatus }).eq('id', editingWorker.id)
+      const { error: uErr } = await supabase.from('users').update({ phone: cleanPhone, email: editEmail.trim() || null, status: editAccountStatus, role: editRole }).eq('id', editingWorker.id)
       if (uErr) throw uErr
 
       await supabase.from('profiles').upsert({
@@ -760,6 +762,13 @@ export function WorkersPage() {
                     <option value="smartphone">📱 Smartphone</option>
                     <option value="keypad">🔢 Keypad Phone</option>
                     <option value="none">❌ No Phone</option>
+                  </select>
+                </div>
+                <div style={{ gridColumn: 'span 2' }}>
+                  <label className="label">Account Role</label>
+                  <select className="input" value={editRole} onChange={e => setEditRole(e.target.value)}>
+                    <option value="worker">Worker</option>
+                    <option value="customer">Customer</option>
                   </select>
                 </div>
               </div>

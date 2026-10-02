@@ -137,7 +137,7 @@ function shortId(uuid: string) {
 // ─────────────────────────────────────────────────────────────────────────────
 export function MyBookingsPage() {
   const toast = useToast()
-  const { customer, isLoggedIn, openRoleModal } = useCustomerAuth()
+  const { customer, isLoggedIn, openRoleModal, openLoginModal } = useCustomerAuth()
 
   const [phone, setPhone] = useState('')
   const [submittedPhone, setSubmittedPhone] = useState('')
@@ -215,6 +215,12 @@ export function MyBookingsPage() {
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    if (!isLoggedIn) {
+      openLoginModal()
+    }
+  }, [isLoggedIn, openLoginModal])
 
   function loadRazorpayScript() {
     return new Promise((resolve) => {
@@ -336,35 +342,13 @@ export function MyBookingsPage() {
             flexWrap: 'wrap',
           }}>
             <div>
-              <div style={{ fontWeight: 700, color: '#1e1b4b', fontSize: '0.9rem' }}>🔒 Login to auto-load your requests</div>
-              <div style={{ color: '#6b7280', fontSize: '0.8rem', marginTop: '0.2rem' }}>Or enter your phone number below to look up requests.</div>
+              <div style={{ fontWeight: 700, color: '#1e1b4b', fontSize: '0.9rem' }}>🔒 Login Required</div>
+              <div style={{ color: '#6b7280', fontSize: '0.8rem', marginTop: '0.2rem' }}>Please login to view your requests.</div>
             </div>
-            <button onClick={openRoleModal} className="btn btn-primary btn-sm" style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.35rem', fontWeight: 700 }}>
+            <button onClick={openLoginModal} className="btn btn-primary btn-sm" style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.35rem', fontWeight: 700 }}>
               <LogIn size={14} /> Login
             </button>
           </div>
-
-          <form onSubmit={handleSearch} style={{
-            background: '#fff', padding: '1.5rem', borderRadius: '1rem',
-            border: '1px solid #e5e7eb', boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
-          }}>
-            <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#374151', display: 'block', marginBottom: '0.5rem' }}>
-              Your Registered Mobile Number
-            </label>
-            <div style={{ display: 'flex', gap: '0.75rem' }}>
-              <div style={{ display: 'flex', flex: 1 }}>
-                <span style={{ padding: '0.625rem 0.75rem', background: '#f3f4f6', border: '1.5px solid #d1d5db', borderRight: 'none', borderRadius: '0.5rem 0 0 0.5rem', fontSize: '0.875rem', color: '#6b7280' }}>+91</span>
-                <input
-                  type="tel" inputMode="numeric" maxLength={10} placeholder="98xxxxxxxx"
-                  value={phone} onChange={e => setPhone(e.target.value.replace(/\D/g, ''))}
-                  className="input" style={{ borderRadius: '0 0.5rem 0.5rem 0' }}
-                />
-              </div>
-              <button type="submit" className="btn btn-primary" disabled={loading} style={{ fontWeight: 700 }}>
-                {loading ? 'Searching…' : 'Find Requests'}
-              </button>
-            </div>
-          </form>
         </div>
       )}
 

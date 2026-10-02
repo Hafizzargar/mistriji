@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, useLocation, Navigate } from 'react-router-dom'
 import { ToastProvider } from '@/contexts/ToastContext'
 import { CustomerAuthProvider } from '@/contexts/CustomerAuthContext'
 import { CustomerLoginModal } from '@/components/CustomerLoginModal'
@@ -20,18 +20,19 @@ function AppInner({ currentArea, setCurrentArea }: { currentArea: string; setCur
   const isHome = location.pathname === '/'
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh', overflow: isHome ? 'hidden' : undefined }}>
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100dvh' }}>
       <TopAnnouncementBanner />
       <Navbar currentArea={currentArea} />
       <CustomerLoginModal />
       <SuspensionAlertModal />
-      <div style={{ flex: 1, overflow: isHome ? 'hidden' : undefined, display: 'flex', flexDirection: 'column' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
         <Routes>
           <Route path="/" element={<HomePage currentArea={currentArea} onAreaChange={setCurrentArea} />} />
           <Route path="/my-bookings" element={<MyBookingsPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/worker" element={<WorkerDashboardPage />} />
           <Route path="/admin/dispatch" element={<AdminDispatchPage />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </div>
       {!isHome && <Footer />}

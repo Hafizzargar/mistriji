@@ -24,13 +24,12 @@ import { useCustomerAuth } from '@/contexts/CustomerAuthContext'
 import { useToast } from '@/contexts/ToastContext'
 import { WorkerAuthModal } from '@/components/WorkerAuthModal'
 import { UserProfileModal } from '@/components/UserProfileModal'
-import { RoleSelectionModal } from '@/components/RoleSelectionModal'
 import { SupportChatModal } from '@/components/SupportChatModal'
 import { NotificationBell } from './NotificationBell'
 
 export function Navbar({ currentArea }: { currentArea: string }) {
   const location = useLocation()
-  const { customer, isLoggedIn, logout, openRoleModal, openProfileModal } = useCustomerAuth()
+  const { customer, isLoggedIn, logout, openLoginModal, openProfileModal } = useCustomerAuth()
   const toast = useToast()
   const [showWorkerModal, setShowWorkerModal] = useState(false)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -115,8 +114,8 @@ export function Navbar({ currentArea }: { currentArea: string }) {
 
           {/* Navigation Actions */}
           <nav className="navbar-nav">
-            {/* My Bookings Link (Hidden for workers) */}
-            {(!isLoggedIn || customer?.role !== 'worker') && (
+            {/* My Bookings Link (Hidden for workers and guests) */}
+            {isLoggedIn && customer?.role !== 'worker' && (
               <Link
                 to="/my-bookings"
                 className={`navbar-link ${location.pathname === '/my-bookings' ? 'active' : ''}`}
@@ -140,18 +139,32 @@ export function Navbar({ currentArea }: { currentArea: string }) {
               </Link>
             )}
 
-            {/* Join as Worker Link (Visible for Guests) */}
+            {/* Guest Actions */}
             {!isLoggedIn && (
-              <button
-                type="button"
-                onClick={openRoleModal}
-                className="navbar-link"
-                style={{ background: 'rgba(79, 70, 229, 0.1)', cursor: 'pointer', padding: '0.5rem 1rem' }}
-                title="Login or Register"
-              >
-                <User size={14} style={{ color: '#4f46e5' }} />
-                <span className="navbar-link-text" style={{ color: '#4f46e5', fontWeight: 700 }}>Login / Register</span>
-              </button>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowWorkerModal(true)}
+                  className="navbar-link"
+                  style={{ background: 'transparent', cursor: 'pointer', padding: '0.5rem' }}
+                  title="Worker Login"
+                >
+                  <HardHat size={14} style={{ color: 'rgba(255,255,255,0.6)' }} />
+                  <span className="navbar-link-text" style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.8rem' }}>For Workers</span>
+                  <span className="navbar-login-text-short" style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.75rem', marginLeft:'0.2rem' }}>Worker</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={openLoginModal}
+                  className="navbar-link"
+                  style={{ background: 'rgba(79, 70, 229, 0.1)', cursor: 'pointer', padding: '0.5rem 1rem' }}
+                  title="Login or Register"
+                >
+                  <User size={14} style={{ color: '#4f46e5' }} />
+                  <span className="navbar-link-text" style={{ color: '#4f46e5', fontWeight: 700 }}>Login / Register</span>
+                  <span className="navbar-login-text-short" style={{ color: '#4f46e5', fontWeight: 700, fontSize: '0.75rem', marginLeft:'0.2rem' }}>Login</span>
+                </button>
+              </div>
             )}
 
             {isLoggedIn && <NotificationBell />}
@@ -228,9 +241,6 @@ export function Navbar({ currentArea }: { currentArea: string }) {
 
       {/* User Profile Edit Modal */}
       <UserProfileModal />
-
-      {/* Role Selection Modal */}
-      <RoleSelectionModal />
 
       {/* Worker Registration & Login Modal */}
       <WorkerAuthModal

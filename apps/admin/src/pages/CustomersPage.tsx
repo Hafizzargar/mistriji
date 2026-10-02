@@ -65,6 +65,7 @@ export function CustomersPage() {
   const [area, setArea]                       = useState('Gandhi Nagar')
   const [pincode, setPincode]                 = useState('180004')
   const [status, setStatus]                   = useState('active')
+  const [userRole, setUserRole]               = useState('customer')
   const [suspensionReason, setSuspensionReason] = useState('')
   const [saving, setSaving]                   = useState(false)
   const [phoneCheck, setPhoneCheck]           = useState<PhoneCheckState>({ status: 'idle' })
@@ -89,6 +90,7 @@ export function CustomersPage() {
           setArea(p?.area ?? 'Gandhi Nagar')
           setPincode(p?.pincode ?? '180004')
           setStatus(toView.status)
+          setUserRole((toView as any).role || 'customer')
           setSuspensionReason(getCustomerSuspensionReason(toView) || '')
           setPhoneCheck({ status: 'idle' })
         }
@@ -103,7 +105,7 @@ export function CustomersPage() {
     const res = await supabase
       .from('users')
       .select(`
-        id, phone, email, status, created_at,
+        id, phone, email, status, created_at, role,
         profiles (name, area, city, district, pincode, photo_url)
       `)
       .eq('role', 'customer')
@@ -277,7 +279,8 @@ export function CustomersPage() {
         const { error: userErr } = await supabase.from('users').update({
           phone: cleanPhone,
           email: email.trim() || null,
-          status
+          status,
+          role: userRole
         }).eq('id', editingCustomer.id)
         if (userErr) throw userErr
 
@@ -452,6 +455,13 @@ export function CustomersPage() {
                 <div>
                   <label className="label">Pincode</label>
                   <input className="input" value={pincode} onChange={e => setPincode(e.target.value)} />
+                </div>
+                <div>
+                  <label className="label">Account Role</label>
+                  <select className="input" value={userRole} onChange={e => setUserRole(e.target.value)}>
+                    <option value="customer">Customer</option>
+                    <option value="worker">Worker</option>
+                  </select>
                 </div>
               </div>
               
