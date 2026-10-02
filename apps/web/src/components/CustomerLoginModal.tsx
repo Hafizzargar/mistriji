@@ -244,28 +244,38 @@ export function CustomerLoginModal() {
   ]
 
   return (
+    <>
+      <style>{`
+        @keyframes slideUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+        .customer-modal-left-panel { display: flex; }
+        @media (max-width: 600px) {
+          .customer-modal-left-panel { display: none !important; }
+          .cust-modal-box { border-radius: 1.25rem !important; max-height: 96dvh !important; }
+        }
+      `}</style>
     <div
       onClick={handleClose}
       style={{
         position: 'fixed', inset: 0,
-        background: 'rgba(15, 23, 42, 0.75)',
+        background: 'rgba(15, 23, 42, 0.8)',
         backdropFilter: 'blur(12px)',
         WebkitBackdropFilter: 'blur(12px)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        zIndex: 2000, padding: '1rem',
+        display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+        zIndex: 2000, padding: '0',
         overscrollBehavior: 'contain',
       }}
     >
       <div
+        className="cust-modal-box"
         onClick={e => e.stopPropagation()}
         style={{
           display: 'flex',
-          borderRadius: '1.5rem',
+          borderRadius: '1.5rem 1.5rem 0 0',
           overflow: 'hidden',
           maxWidth: 780, width: '100%',
-          boxShadow: '0 32px 80px -8px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.08)',
-          animation: 'slideUp 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)',
-          maxHeight: 'min(92vh, 620px)',
+          boxShadow: '0 -8px 40px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.08)',
+          animation: 'slideUp 0.3s cubic-bezier(0.34, 1.2, 0.64, 1)',
+          maxHeight: 'min(92vh, 680px)',
         }}
       >
         {/* ── LEFT PANEL (brand) ────────────────────────── */}
@@ -666,11 +676,7 @@ export function CustomerLoginModal() {
           </div>
         </div>
       </div>
-
-      {/* Spinner animation */}
-      <style>{`
-        @keyframes spin { to { transform: rotate(360deg); } }
-      `}</style>
     </div>
+    </>
   )
 }
