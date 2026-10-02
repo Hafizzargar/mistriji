@@ -130,8 +130,13 @@ export function AdminLayout() {
           justifyContent: 'flex-end',
           padding: '0.875rem 1.75rem',
           borderBottom: '1px solid var(--gray-200)',
-          background: '#fff',
-          gap: '1rem'
+          background: 'rgba(255, 255, 255, 0.96)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+          gap: '1rem',
+          position: 'sticky',
+          top: 0,
+          zIndex: 100
         }}>
           {/* User Profile Badge (Moved from sidebar to top header) */}
           <div style={{
