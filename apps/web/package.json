@@ -9,7 +9,6 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "nodemailer": "^6.9.14",
     "@capacitor/android": "^8.5.2",
     "@capacitor/core": "^8.5.2",
     "@capacitor/preferences": "^8.0.1",

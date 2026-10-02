@@ -1,19 +1,21 @@
 /**
- * ─── Email Service (Resend HTTP API) ───────────────────────────
- * Sends OTP codes via Resend API (HTTP port 443) to bypass Render's SMTP block.
+ * ─── Email Service (Brevo API) ───────────────────────────────
+ * Sends OTP codes via Brevo HTTP API (port 443).
+ * Works from Render, Vercel, anywhere — no domain required.
  */
 
+const BREVO_API_URL = 'https://api.brevo.com/v3/smtp/email'
+
 async function sendEmailOTP(toEmail, otp) {
-  const apiKey = process.env.RESEND_API_KEY
+  const apiKey = process.env.BREVO_API_KEY
 
   if (!apiKey) {
-    console.error('❌ RESEND_API_KEY is required in .env')
+    console.error('❌ BREVO_API_KEY is required in .env')
     return { success: false, error: 'Email service not configured. Contact admin.' }
   }
 
-  // If using Resend without a custom domain, you MUST use onboarding@resend.dev as the from address,
-  // and you can only send emails to the address you signed up with.
-  const fromEmail = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev'
+  const fromEmail = process.env.BREVO_FROM_EMAIL || 'hafezzargar987@gmail.com'
+  const fromName  = process.env.BREVO_FROM_NAME  || 'MistriJi'
 
   const htmlContent = `
     <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
@@ -38,43 +40,115 @@ async function sendEmailOTP(toEmail, otp) {
   `
 
   try {
-    const vercelUrl = process.env.VERCEL_FRONTEND_URL || 'https://ji-web.vercel.app';
-    const res = await fetch(`${vercelUrl}/api/sendEmail`, {
+    const res = await fetch(BREVO_API_URL, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'api-key': apiKey,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
       },
       body: JSON.stringify({
-        to: toEmail,
+        sender: { name: fromName, email: fromEmail },
+        to: [{ email: toEmail }],
         subject: `${otp} — Your MistriJi Login Code`,
-        html: htmlContent,
-        secret: process.env.VERCEL_SMTP_SECRET // Optional protection
+        htmlContent
       })
     })
 
     const data = await res.json()
 
     if (!res.ok) {
-      console.error('Vercel SMTP Error:', data)
-      return { success: false, error: 'Vercel SMTP Error: ' + (data.error || 'Unknown error') }
+      console.error('Brevo API Error:', JSON.stringify(data))
+      return { success: false, error: 'Brevo API Error: ' + (data.message || 'Unknown error') }
     }
 
-    console.log(`📧 OTP email sent via Resend to ${toEmail} | Code: [${otp}]`)
+    console.log(`📧 OTP email sent via Brevo to ${toEmail} | Code: [${otp}]`)
     return { success: true }
   } catch (err) {
     console.error('Email send error:', err.message)
-    return { success: false, error: 'HTTP Email Error: ' + err.message }
+    return { success: false, error: 'Email Error: ' + err.message }
+  }
+}
+
+async function sendEmailNotification(toEmail, subject, messageHtml) {
+  const apiKey = process.env.BREVO_API_KEY
+  if (!apiKey) return { success: false, error: 'Email service not configured.' }
+
+  const fromEmail = process.env.BREVO_FROM_EMAIL || 'hafezzargar987@gmail.com'
+  const fromName  = process.env.BREVO_FROM_NAME  || 'MistriJi'
+
+  try {
+    const res = await fetch(BREVO_API_URL, {
+      method: 'POST',
+      headers: {
+        'api-key': apiKey,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify({
+        sender: { name: fromName, email: fromEmail },
+        to: [{ email: toEmail }],
+        subject,
+        htmlContent: messageHtml
+      })
+    })
+
+    const data = await res.json()
+    if (!res.ok) {
+      console.error('Brevo notification error:', JSON.stringify(data))
+      return { success: false, error: data.message }
+    }
+    return { success: true }
+  } catch (err) {
+    return { success: false, error: err.message }
   }
 }
 
 async function sendAdminWelcomeEmail({ toEmail, name, pin, phone, role = 'Administrator' }) {
-  // Simplified for HTTP bypass
-  return { success: true }
-}
+  const apiKey = process.env.BREVO_API_KEY
+  if (!apiKey) return { success: false, error: 'Email service not configured.' }
 
-async function sendEmailNotification(toEmail, subject, messageHtml) {
-  // Simplified for HTTP bypass
-  return { success: true }
+  const fromEmail = process.env.BREVO_FROM_EMAIL || 'hafezzargar987@gmail.com'
+  const fromName  = process.env.BREVO_FROM_NAME  || 'MistriJi'
+
+  const htmlContent = `
+    <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
+      <h1 style="color: #4f46e5;">🔧 Welcome to MistriJi, ${name}!</h1>
+      <p>Your admin account has been created. Here are your login details:</p>
+      <ul>
+        <li><strong>Role:</strong> ${role}</li>
+        <li><strong>Phone:</strong> ${phone}</li>
+        <li><strong>PIN:</strong> ${pin}</li>
+      </ul>
+      <p style="color: #ef4444;"><strong>Please keep your PIN secret and do not share it with anyone.</strong></p>
+    </div>
+  `
+
+  try {
+    const res = await fetch(BREVO_API_URL, {
+      method: 'POST',
+      headers: {
+        'api-key': apiKey,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify({
+        sender: { name: fromName, email: fromEmail },
+        to: [{ email: toEmail }],
+        subject: 'Welcome to MistriJi Admin',
+        htmlContent
+      })
+    })
+
+    const data = await res.json()
+    if (!res.ok) {
+      console.error('Brevo welcome email error:', JSON.stringify(data))
+      return { success: false, error: data.message }
+    }
+    return { success: true }
+  } catch (err) {
+    return { success: false, error: err.message }
+  }
 }
 
 module.exports = { sendEmailOTP, sendEmailNotification, sendAdminWelcomeEmail }
