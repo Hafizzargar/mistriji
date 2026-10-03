@@ -533,7 +533,8 @@ img { max-width: 100%; display: block; }
 /* ─── Admin Responsive Shell & Mobile Header ──────────────── */
 .admin-shell {
   display: flex;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
   background: var(--gray-50);
   width: 100%;
 }
@@ -545,6 +546,8 @@ img { max-width: 100%; display: block; }
   width: 100%;
   display: flex;
   flex-direction: column;
+  height: 100vh;
+  overflow-y: auto;
 }
 
 .admin-content {

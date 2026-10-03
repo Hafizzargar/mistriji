@@ -30,10 +30,25 @@ export const DEFAULT_ANNOUNCEMENT: SystemAnnouncement = {
   updatedAt: new Date().toISOString(),
 }
 
+export interface PaymentSettings {
+  customerPaymentsEnabled: boolean
+  workerPaymentsEnabled: boolean
+  type: 'percentage' | 'fixed'
+  value: number
+}
+
+export const DEFAULT_PAYMENT_SETTINGS: PaymentSettings = {
+  customerPaymentsEnabled: false,
+  workerPaymentsEnabled: false,
+  type: 'percentage',
+  value: 10
+}
+
 export const STORAGE_KEY = 'mistriji_system_announcement'
 export const OPERATING_DISTRICTS_KEY = 'mistriji_operating_districts'
 export const LOCATION_CATALOG_KEY = 'mistriji_location_catalog'
 export const FOOTER_SETTINGS_KEY = 'mistriji_footer_settings'
+export const PAYMENT_SETTINGS_KEY = 'mistriji_payment_settings'
 
 export interface LocationCatalogEntry {
   district: string
@@ -460,5 +475,27 @@ export async function savePlatformFeatures(features: PlatformFeatures): Promise<
     return { success: true }
   } catch (err: any) {
     return { success: false, error: err.message }
+  }
+}
+
+export async function fetchPaymentSettings(): Promise<PaymentSettings> {
+  try {
+    const { data, error } = await supabase.from('system_settings').select('value').eq('key', PAYMENT_SETTINGS_KEY).maybeSingle()
+    if (error) throw error
+    if (data?.value) return data.value as PaymentSettings
+  } catch (error) {
+    console.error('Error fetching payment settings:', error)
+  }
+  return DEFAULT_PAYMENT_SETTINGS
+}
+
+export async function savePaymentSettings(settings: PaymentSettings): Promise<boolean> {
+  try {
+    const { error } = await supabase.from('system_settings').upsert({ key: PAYMENT_SETTINGS_KEY, value: settings }, { onConflict: 'key' })
+    if (error) throw error
+    return true
+  } catch (error) {
+    console.error('Error saving payment settings:', error)
+    return false
   }
 }

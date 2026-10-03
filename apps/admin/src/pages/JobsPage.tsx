@@ -62,9 +62,10 @@ export function JobsPage() {
   const [skillId, setSkillId]       = useState('')
   const [customerId, setCustomerId] = useState('')
   const [workerId, setWorkerId]     = useState('')
-  const [area, setArea]             = useState('Gandhi Nagar')
+  const [area, setArea]             = useState('')
   const [address, setAddress]       = useState('')
-  const [price, setPrice]           = useState('500')
+  const [price, setPrice]           = useState('')
+  const [description, setDescription] = useState('')
   const [saving, setSaving]         = useState(false)
   const [error, setError]           = useState('')
 
@@ -268,9 +269,10 @@ export function JobsPage() {
     setSkillId(skills[0]?.id ?? '')
     setCustomerId(customers[0]?.id ?? '')
     setWorkerId('')
-    setArea('Gandhi Nagar')
-    setAddress('House #12, Block B')
-    setPrice('500')
+    setArea('')
+    setAddress('')
+    setPrice('')
+    setDescription('')
     setError('')
     setShowModal(true)
   }
@@ -291,6 +293,7 @@ export function JobsPage() {
         worker_id: workerId || null,
         area,
         address,
+        description,
         price: Number(price) || 0,
         status: workerId ? 'accepted' : 'requested',
       }).select().single()
@@ -360,8 +363,18 @@ export function JobsPage() {
             value={j.skill_id}
             onChange={e => handleServiceChange(j.id, e.target.value)}
           >
-            {skills.map(s => (
-              <option key={s.id} value={s.id}>
+            {skills
+              .sort((a, b) => {
+                if (a.name.toLowerCase() === 'other') return 1;
+                if (b.name.toLowerCase() === 'other') return -1;
+                return a.name.localeCompare(b.name);
+              })
+              .map(s => (
+              <option 
+                key={s.id} 
+                value={s.id}
+                style={s.name.toLowerCase() === 'other' ? { color: '#64748b' } : {}}
+              >
                 {s.icon} {s.name}
               </option>
             ))}
@@ -389,7 +402,8 @@ export function JobsPage() {
       header: 'Assigned Worker',
       searchValue: j => `${(j.worker as any)?.profiles?.name ?? ''} ${(j.worker as any)?.phone ?? ''}`,
       render: j => {
-        const jobArea = j.area?.toLowerCase() || ''
+        const rawJobArea = j.area || ''
+        const jobArea = rawJobArea.toLowerCase()
         const jobSkillId = j.skill_id
         
         const custProfiles = (j.customer as any)?.profiles
@@ -401,23 +415,37 @@ export function JobsPage() {
         let regionalWorkers = workers.filter(w => {
           const p = w.profiles
           if (!p) return false
-          const wArea = p.area?.toLowerCase() || ''
+          const wAreaRaw = p.area || ''
+          const wArea = wAreaRaw.toLowerCase()
           const wDist = p.district?.toLowerCase() || ''
           const wCity = p.city?.toLowerCase() || ''
           
           // Infer the absolute target district for this job
           let targetDist = custDist
-          const ALL_DISTRICTS = ['jammu', 'samba', 'kathua', 'udhampur', 'reasi', 'rajouri', 'poonch', 'doda', 'ramban', 'kishtwar']
-          for (const d of ALL_DISTRICTS) {
-            if (jobArea.includes(d)) {
-              targetDist = d
-              break
+          const mappedDist = (JAMMU_AREAS as any)[rawJobArea]?.district?.toLowerCase()
+          if (mappedDist) {
+            targetDist = mappedDist
+          } else {
+            const ALL_DISTRICTS = ['jammu', 'samba', 'kathua', 'udhampur', 'reasi', 'rajouri', 'poonch', 'doda', 'ramban', 'kishtwar']
+            for (const d of ALL_DISTRICTS) {
+              if (jobArea.includes(d)) {
+                targetDist = d
+                break
+              }
             }
           }
 
           // Strict District Isolation: worker MUST be from the target district
-          if (targetDist && wDist && wDist !== targetDist && !wDist.includes(targetDist) && !targetDist.includes(wDist)) {
-            return false
+          if (targetDist) {
+            let inferredWorkerDist = wDist
+            if (!inferredWorkerDist && wAreaRaw) {
+              inferredWorkerDist = (JAMMU_AREAS as any)[wAreaRaw]?.district?.toLowerCase() || ''
+            }
+            const knownLocs = [wDist, inferredWorkerDist, wCity, wArea].filter(Boolean)
+            if (knownLocs.length > 0) {
+              const hasMatch = knownLocs.some(loc => loc === targetDist || loc.includes(targetDist) || targetDist.includes(loc))
+              if (!hasMatch) return false // STRICT ISOLATION
+            }
           }
 
           // Check if any of the location fields overlap
@@ -590,8 +618,20 @@ export function JobsPage() {
                 <div>
                   <label className="label">Service / Skill Required *</label>
                   <select className="input" value={skillId} onChange={e => setSkillId(e.target.value)} required>
-                    {skills.map(s => (
-                      <option key={s.id} value={s.id}>{s.icon} {s.name}</option>
+                    {skills
+                      .sort((a, b) => {
+                        if (a.name.toLowerCase() === 'other') return 1;
+                        if (b.name.toLowerCase() === 'other') return -1;
+                        return a.name.localeCompare(b.name);
+                      })
+                      .map(s => (
+                      <option 
+                        key={s.id} 
+                        value={s.id}
+                        style={s.name.toLowerCase() === 'other' ? { color: '#64748b' } : {}}
+                      >
+                        {s.icon} {s.name}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -651,7 +691,12 @@ export function JobsPage() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.875rem' }}>
                   <div>
                     <label className="label">Area in Jammu *</label>
-                    <input className="input" value={area} onChange={e => setArea(e.target.value)} required />
+                    <select className="input" value={area} onChange={e => setArea(e.target.value)} required>
+                      <option value="">Select Area...</option>
+                      {Object.values(JAMMU_AREAS).map(a => (
+                        <option key={a.name} value={a.name}>{a.name} ({a.description})</option>
+                      ))}
+                    </select>
                   </div>
                   <div>
                     <label className="label">Price (₹) *</label>
@@ -662,6 +707,11 @@ export function JobsPage() {
                 <div>
                   <label className="label">Full Address *</label>
                   <input className="input" value={address} onChange={e => setAddress(e.target.value)} required />
+                </div>
+
+                <div>
+                  <label className="label">Work Description</label>
+                  <textarea className="input" value={description} onChange={e => setDescription(e.target.value)} rows={3} style={{ resize: 'vertical' }} />
                 </div>
               </div>
 

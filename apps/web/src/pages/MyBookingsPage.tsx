@@ -5,6 +5,7 @@ import { useToast } from '@/contexts/ToastContext'
 import { useCustomerAuth } from '@/contexts/CustomerAuthContext'
 import { createPaymentOrder, verifyPayment, openRazorpayCheckout } from '@/api'
 import { RefreshCw, LogIn, Phone, Clock, CheckCircle, ArrowLeft, ArrowRight, Plus } from 'lucide-react'
+import { fetchPaymentSettings, PaymentSettings } from '@/lib/settings'
 
 interface Skill { name: string; icon: string }
 
@@ -63,67 +64,69 @@ function getStage(status: string): PipelineStage {
 // Progress bar — ordered pipeline steps (excluding cancelled)
 const ORDERED_STEPS = ['requested', 'pending_dispatch', 'accepted', 'on_way', 'arrived', 'working', 'completed']
 
-function ProgressBar({ status }: { status: string }) {
+function VerticalTimeline({ status }: { status: string }) {
   if (status === 'cancelled') return null
-  const currentIdx = ORDERED_STEPS.indexOf(status)
+
+  // Group steps for simpler UI
+  const groups = [
+    { key: 'received',   label: 'Request Received', icon: '📝', statuses: ['requested', 'pending_dispatch'] },
+    { key: 'assigned',   label: 'Worker Assigned',  icon: '👷', statuses: ['accepted'] },
+    { key: 'arriving',   label: 'Worker Arriving',  icon: '🚗', statuses: ['on_way', 'arrived'] },
+    { key: 'working',    label: 'In Progress',      icon: '🔧', statuses: ['working'] },
+    { key: 'completed',  label: 'Completed',        icon: '✅', statuses: ['completed'] }
+  ]
+
+  let currentGroupIdx = groups.findIndex(g => g.statuses.includes(status))
+  if (currentGroupIdx === -1) currentGroupIdx = 0
 
   return (
-    <div style={{ marginTop: '1.25rem', marginBottom: '1rem' }}>
-      <div style={{ display: 'flex', position: 'relative', alignItems: 'center' }}>
-        {/* Track line */}
-        <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: 3, background: '#e5e7eb', transform: 'translateY(-50%)', zIndex: 0 }} />
-        <div style={{
-          position: 'absolute', top: '50%', left: 0, height: 3,
-          width: `${Math.max(0, (currentIdx / (ORDERED_STEPS.length - 1)) * 100)}%`,
-          background: 'linear-gradient(90deg, #4f46e5, #818cf8)',
-          transform: 'translateY(-50%)', zIndex: 1, transition: 'width 0.3s ease',
-          borderRadius: 99,
-        }} />
-        {ORDERED_STEPS.map((s, i) => {
-          const done = i <= currentIdx
-          const active = i === currentIdx
-          return (
-            <div key={s} style={{ flex: 1, display: 'flex', justifyContent: i === 0 ? 'flex-start' : i === ORDERED_STEPS.length - 1 ? 'flex-end' : 'center', position: 'relative', zIndex: 2 }}>
+    <div style={{ margin: '0.5rem 0 1rem 0' }}>
+      {groups.map((g, i) => {
+        const done = i <= currentGroupIdx
+        const active = i === currentGroupIdx
+        const isLast = i === groups.length - 1
+
+        return (
+          <div key={g.key} style={{ display: 'flex', gap: '1rem', position: 'relative', minHeight: '3.5rem' }}>
+            {/* Timeline Line */}
+            {!isLast && (
               <div style={{
-                width: active ? 20 : 12, height: active ? 20 : 12,
-                borderRadius: '50%',
-                background: done ? '#4f46e5' : '#fff',
-                border: `2px solid ${done ? '#4f46e5' : '#d1d5db'}`,
-                boxShadow: active ? '0 0 0 4px rgba(79,70,229,0.25)' : 'none',
-                transition: 'all 0.2s',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: '#fff', fontSize: '0.6rem', fontWeight: 800
-              }}>
-                {done && !active ? '✓' : ''}
+                position: 'absolute', top: '2rem', left: '0.9rem', bottom: '-0.25rem', width: '2px',
+                background: done ? 'linear-gradient(180deg, #4f46e5, #818cf8)' : '#e2e8f0', zIndex: 0
+              }} />
+            )}
+            
+            {/* Timeline Dot */}
+            <div style={{
+              width: '1.8rem', height: '1.8rem', borderRadius: '50%',
+              background: active ? '#fff' : done ? '#4f46e5' : '#f8fafc',
+              border: `2px solid ${active ? '#4f46e5' : done ? '#4f46e5' : '#e2e8f0'}`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              zIndex: 1, marginTop: '0.1rem',
+              boxShadow: active ? '0 0 0 4px rgba(79,70,229,0.15)' : 'none',
+              transition: 'all 0.3s ease'
+            }}>
+              {done && !active ? (
+                <span style={{ color: '#fff', fontSize: '0.8rem', fontWeight: 800 }}>✓</span>
+              ) : active ? (
+                <div style={{ width: '0.5rem', height: '0.5rem', borderRadius: '50%', background: '#4f46e5' }} />
+              ) : null}
+            </div>
+
+            {/* Timeline Content */}
+            <div style={{ paddingBottom: isLast ? '0' : '1.5rem', flex: 1, opacity: active || done ? 1 : 0.4 }}>
+              <div style={{ fontWeight: active ? 800 : done ? 700 : 500, color: active ? '#1e1b4b' : done ? '#334155' : '#64748b', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.15rem' }}>
+                <span style={{ fontSize: '1.1rem' }}>{g.icon}</span> {g.label}
               </div>
+              {active && (
+                <div style={{ fontSize: '0.75rem', color: '#6366f1', marginTop: '0.25rem', fontWeight: 700, background: '#e0e7ff', display: 'inline-block', padding: '0.1rem 0.5rem', borderRadius: '0.25rem' }}>
+                  Current Status
+                </div>
+              )}
             </div>
-          )
-        })}
-      </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.625rem' }}>
-        {ORDERED_STEPS.map((s, i) => {
-          const stage = PIPELINE.find(p => p.status === s)!
-          const done = i <= currentIdx
-          const active = i === currentIdx
-          return (
-            <div key={s} style={{ flex: 1, textAlign: i === 0 ? 'left' : i === ORDERED_STEPS.length - 1 ? 'right' : 'center', display: 'flex', flexDirection: 'column', alignItems: i === 0 ? 'flex-start' : i === ORDERED_STEPS.length - 1 ? 'flex-end' : 'center' }}>
-              <span style={{ fontSize: '0.85rem', lineHeight: 1 }}>
-                {stage.emoji}
-              </span>
-              <span style={{
-                fontSize: '0.68rem',
-                fontWeight: active ? 800 : done ? 700 : 500,
-                color: active ? '#4f46e5' : done ? '#374151' : '#9ca3af',
-                marginTop: '0.2rem',
-                lineHeight: 1.15,
-                whiteSpace: 'nowrap'
-              }}>
-                {stage.shortLabel}
-              </span>
-            </div>
-          )
-        })}
-      </div>
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -144,6 +147,7 @@ export function MyBookingsPage() {
   const [jobs, setJobs] = useState<Job[]>([])
   const [loading, setLoading] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
+  const [paymentSettings, setPaymentSettings] = useState<PaymentSettings | null>(null)
 
   // ── WORKER REDIRECT ────────────────────────────────────
   if (isLoggedIn && customer?.role === 'worker') {
@@ -151,6 +155,7 @@ export function MyBookingsPage() {
   }
 
   useEffect(() => {
+    fetchPaymentSettings().then(setPaymentSettings)
     if (isLoggedIn && customer) {
       if (customer.phone) {
         setPhone(customer.phone)
@@ -413,11 +418,11 @@ export function MyBookingsPage() {
                     </div>
 
                     <div style={{ padding: '1.25rem' }}>
-                      {/* Progress bar */}
-                      <ProgressBar status={job.status} />
+                      {/* Timeline */}
+                      <VerticalTimeline status={job.status} />
 
                       {/* Service info */}
-                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', marginTop: '1rem', paddingBottom: '1rem', borderBottom: '1px solid #f3f4f6' }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #f1f5f9' }}>
                         <span style={{ fontSize: '1.75rem', flexShrink: 0 }}>{job.skills?.icon || '🔧'}</span>
                         <div>
                           <div style={{ fontWeight: 700, fontSize: '1.05rem', color: '#1e1b4b' }}>{job.skills?.name || 'Service Request'}</div>
@@ -524,52 +529,62 @@ export function MyBookingsPage() {
 
                       {isCompleted && (
                         <div style={{ marginTop: '0.875rem', padding: '0.875rem', background: '#d1fae5', border: '1px solid #6ee7b7', borderRadius: '0.75rem' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: job.price ? '0.75rem' : '0' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
                             <CheckCircle size={20} style={{ color: '#065f46', flexShrink: 0 }} />
                             <div>
                               <div style={{ fontWeight: 700, color: '#065f46' }}>Job Completed ✓</div>
-                              {job.price && <div style={{ fontSize: '0.8rem', color: '#166534' }}>Amount: ₹{job.price}</div>}
+                              {job.price ? (
+                                <div style={{ fontSize: '0.85rem', color: '#166534', fontWeight: 700 }}>Amount: ₹{job.price}</div>
+                              ) : (
+                                <div style={{ fontSize: '0.8rem', color: '#92400e' }}>Amount not set yet</div>
+                              )}
                             </div>
                           </div>
                           
-                          {/* Payment Section */}
-                          {job.price && (
-                            <div style={{ 
-                              paddingTop: '0.75rem', 
-                              borderTop: '1px dashed #6ee7b7',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'space-between'
-                            }}>
-                              {job.payments && job.payments.some(p => p.status === 'captured') ? (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#059669', fontWeight: 700, fontSize: '0.85rem' }}>
-                                  ✅ Paid Successfully
+                          {/* Payment Status */}
+                          <div style={{ 
+                            paddingTop: '0.75rem', 
+                            borderTop: '1px dashed #6ee7b7',
+                          }}>
+                            {job.payments && job.payments.some(p => p.status === 'captured') ? (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#059669', fontWeight: 700, fontSize: '0.85rem' }}>
+                                ✅ Paid Online Successfully
+                              </div>
+                            ) : job.price ? (
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                <div>
+                                  <span style={{ fontSize: '0.8rem', color: '#92400e', fontWeight: 700 }}>💰 Payment Pending</span>
+                                  {!paymentSettings?.customerPaymentsEnabled && (
+                                    <div style={{ fontSize: '0.72rem', color: '#6b7280', marginTop: '0.15rem' }}>Pay by cash to your worker</div>
+                                  )}
                                 </div>
-                              ) : (
-                                <>
-                                  <span style={{ fontSize: '0.8rem', color: '#166534', fontWeight: 600 }}>Payment Pending</span>
+                                {paymentSettings?.customerPaymentsEnabled && (
                                   <button
                                     onClick={() => handlePayment(job)}
                                     disabled={loading}
                                     style={{
-                                      background: '#4f46e5',
+                                      background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
                                       color: '#ffffff',
                                       border: 'none',
-                                      padding: '0.4rem 1rem',
-                                      borderRadius: '0.5rem',
+                                      padding: '0.5rem 1.25rem',
+                                      borderRadius: '0.625rem',
                                       fontWeight: 700,
                                       fontSize: '0.85rem',
                                       cursor: loading ? 'not-allowed' : 'pointer',
                                       opacity: loading ? 0.7 : 1,
-                                      boxShadow: '0 2px 4px rgba(79, 70, 229, 0.2)'
+                                      boxShadow: '0 2px 8px rgba(79, 70, 229, 0.3)'
                                     }}
                                   >
-                                    Pay ₹{job.price} Now
+                                    💳 Pay ₹{job.price} Online
                                   </button>
-                                </>
-                              )}
-                            </div>
-                          )}
+                                )}
+                              </div>
+                            ) : (
+                              <div style={{ fontSize: '0.8rem', color: '#6b7280', fontWeight: 500 }}>
+                                Waiting for worker to set the final amount…
+                              </div>
+                            )}
+                          </div>
                         </div>
                       )}
                     </div>

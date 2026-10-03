@@ -45,11 +45,26 @@ export const DEFAULT_PLATFORM_FEATURES: PlatformFeatures = {
   assignment_mode: 'auto',
 }
 
+export interface PaymentSettings {
+  customerPaymentsEnabled: boolean
+  workerPaymentsEnabled: boolean
+  type: 'percentage' | 'fixed'
+  value: number
+}
+
+export const DEFAULT_PAYMENT_SETTINGS: PaymentSettings = {
+  customerPaymentsEnabled: false,
+  workerPaymentsEnabled: false,
+  type: 'percentage',
+  value: 10
+}
+
 export const STORAGE_KEY = 'mistriji_system_announcement'
 export const FEATURES_STORAGE_KEY = 'mistriji_platform_features'
 export const OPERATING_DISTRICTS_KEY = 'mistriji_operating_districts'
 export const LOCATION_CATALOG_KEY = 'mistriji_location_catalog'
 export const FOOTER_SETTINGS_KEY = 'mistriji_footer_settings'
+export const PAYMENT_SETTINGS_KEY = 'mistriji_payment_settings'
 export const DEFAULT_OPERATING_DISTRICTS: string[] = []
 
 export interface LocationCatalogEntry {
@@ -380,4 +395,20 @@ export async function fetchPlatformFeatures(forceRefresh = false): Promise<Platf
   return DEFAULT_PLATFORM_FEATURES
 }
 
-
+export async function fetchPaymentSettings(): Promise<PaymentSettings> {
+  try {
+    const { data, error } = await supabase
+      .from('system_settings')
+      .select('value')
+      .eq('key', PAYMENT_SETTINGS_KEY)
+      .maybeSingle()
+      
+    if (!error && data?.value) {
+      const parsed = typeof data.value === 'string' ? JSON.parse(data.value) : data.value
+      return { ...DEFAULT_PAYMENT_SETTINGS, ...parsed }
+    }
+  } catch (err) {
+    console.warn('Payment settings fetch error:', err)
+  }
+  return DEFAULT_PAYMENT_SETTINGS
+}

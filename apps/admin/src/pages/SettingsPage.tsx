@@ -20,7 +20,11 @@ import {
   PlatformFeatures,
   DEFAULT_PLATFORM_FEATURES,
   fetchPlatformFeatures,
-  savePlatformFeatures
+  savePlatformFeatures,
+  PaymentSettings,
+  DEFAULT_PAYMENT_SETTINGS,
+  fetchPaymentSettings,
+  savePaymentSettings
 } from '@/lib/settings'
 import {
   Wrench,
@@ -45,17 +49,20 @@ import {
 } from 'lucide-react'
 import { sendOTP, updatePinWithOTP } from '@/lib/authApi'
 import { ManageAreasPage } from '@/pages/ManageAreasPage'
+import { useAuth } from '@/contexts/AuthContext'
 
 export function SettingsPage() {
+  const { user } = useAuth()
   const toast = useToast()
   const navigate = useNavigate()
   const location = useLocation()
   const isAreasSection = location.pathname.endsWith('/areas')
-  const [activeSettingsTab, setActiveSettingsTab] = useState<'announcement' | 'footer' | 'areas' | 'security'>(isAreasSection ? 'areas' : 'announcement')
+  const [activeSettingsTab, setActiveSettingsTab] = useState<'announcement' | 'footer' | 'areas' | 'security' | 'payments'>(isAreasSection ? 'areas' : 'announcement')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [settings, setSettings] = useState<SystemAnnouncement>(DEFAULT_ANNOUNCEMENT)
   const [platformFeatures, setPlatformFeatures] = useState<PlatformFeatures>(DEFAULT_PLATFORM_FEATURES)
+  const [paymentSettings, setPaymentSettings] = useState<PaymentSettings>(DEFAULT_PAYMENT_SETTINGS)
   const [operatingDistricts, setOperatingDistricts] = useState<string[]>([])
   const [locationCatalog, setLocationCatalog] = useState<LocationCatalogEntry[]>(DEFAULT_LOCATION_CATALOG)
   const [footerSettings, setFooterSettings] = useState<FooterSettings>(DEFAULT_FOOTER_SETTINGS)
@@ -106,11 +113,13 @@ export function SettingsPage() {
       const districts = await fetchOperatingDistricts()
       const catalog = await fetchLocationCatalog()
       const footer = await fetchFooterSettings()
+      const pSettings = await fetchPaymentSettings()
       setSettings(data)
       setPlatformFeatures(features)
       setOperatingDistricts(districts)
       setLocationCatalog(catalog.length ? catalog : DEFAULT_LOCATION_CATALOG)
       setFooterSettings(footer)
+      setPaymentSettings(pSettings)
       setLoading(false)
     }
     load()
@@ -127,9 +136,10 @@ export function SettingsPage() {
     const districtRes = await saveOperatingDistricts(operatingDistricts)
     const catalogRes = await saveLocationCatalog(locationCatalog)
     const footerRes = await saveFooterSettings(footerSettings)
+    const paymentRes = await savePaymentSettings(paymentSettings)
     setSaving(false)
-    if (res.success && featRes.success && districtRes.success && catalogRes.success && footerRes.success) {
-      toast.success('Settings, banner, features, footer, and locations updated successfully!')
+    if (res.success && featRes.success && districtRes.success && catalogRes.success && footerRes.success && paymentRes) {
+      toast.success('Settings, banner, features, footer, locations, and payments updated successfully!')
     } else {
       toast.error(footerRes.error || catalogRes.error || districtRes.error || featRes.error || res.error || 'Failed to save settings')
     }
@@ -577,8 +587,127 @@ export function SettingsPage() {
           >
             <ShieldCheck size={14} style={{ color: '#4f46e5' }} /> Security & PIN
           </button>
+          
+          {user?.role === 'super_admin' && (
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => {
+                setActiveSettingsTab('payments')
+                navigate('/settings')
+              }}
+              style={{
+                borderRadius: '0.55rem',
+                background: activeSettingsTab === 'payments' ? '#fff' : 'transparent',
+                boxShadow: activeSettingsTab === 'payments' ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
+                color: activeSettingsTab === 'payments' ? 'var(--gray-900)' : 'var(--gray-600)',
+                fontWeight: activeSettingsTab === 'payments' ? 700 : 600,
+                minWidth: 150
+              }}
+            >
+              Payments & Commission
+            </button>
+          )}
         </div>
       </div>
+
+      {activeSettingsTab === 'payments' && user?.role === 'super_admin' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', marginBottom: '2rem' }}>
+          <div className="card" style={{ padding: '2rem' }}>
+            <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              💰 Payment & Commission Settings (Super Admin)
+            </h2>
+            <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              
+              <div style={{ padding: '1rem', background: 'var(--gray-50)', borderRadius: '0.75rem', border: '1px solid var(--gray-200)' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontWeight: 600, cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={paymentSettings.customerPaymentsEnabled}
+                    onChange={(e) => setPaymentSettings({ ...paymentSettings, customerPaymentsEnabled: e.target.checked })}
+                    style={{ width: 18, height: 18 }}
+                  />
+                  Enable Online Payments for Customers (Razorpay)
+                </label>
+                <p style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: 'var(--gray-500)', marginLeft: '2.25rem' }}>
+                  If disabled, customers will bypass the payment screen and simply submit their requests.
+                </p>
+              </div>
+
+              <div style={{ padding: '1rem', background: 'var(--gray-50)', borderRadius: '0.75rem', border: '1px solid var(--gray-200)' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontWeight: 600, cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={paymentSettings.workerPaymentsEnabled}
+                    onChange={(e) => setPaymentSettings({ ...paymentSettings, workerPaymentsEnabled: e.target.checked })}
+                    style={{ width: 18, height: 18 }}
+                  />
+                  Enable Subscription/Commission System for Workers
+                </label>
+                <p style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: 'var(--gray-500)', marginLeft: '2.25rem' }}>
+                  If disabled, workers will not be prompted to link their Razorpay or subscribe to MistriJi.
+                </p>
+              </div>
+
+              {paymentSettings.workerPaymentsEnabled && (
+                <div style={{ marginTop: '0.5rem', padding: '1rem', border: '1px solid var(--gray-200)', borderRadius: '0.75rem' }}>
+                  <label style={{ display: 'block', marginBottom: '1rem', fontWeight: 600 }}>Commission Split Type</label>
+                  <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                      <input
+                        type="radio"
+                        name="commissionType"
+                        value="percentage"
+                        checked={paymentSettings.type === 'percentage'}
+                        onChange={(e) => setPaymentSettings({ ...paymentSettings, type: e.target.value as 'percentage' | 'fixed' })}
+                      />
+                      Percentage (%)
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                      <input
+                        type="radio"
+                        name="commissionType"
+                        value="fixed"
+                        checked={paymentSettings.type === 'fixed'}
+                        onChange={(e) => setPaymentSettings({ ...paymentSettings, type: e.target.value as 'percentage' | 'fixed' })}
+                      />
+                      Fixed Amount (₹)
+                    </label>
+                  </div>
+
+                  <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>
+                    Commission Value {paymentSettings.type === 'percentage' ? '(%)' : '(₹)'}
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max={paymentSettings.type === 'percentage' ? '100' : undefined}
+                    value={paymentSettings.value}
+                    onChange={(e) => setPaymentSettings({ ...paymentSettings, value: Number(e.target.value) })}
+                    className="input"
+                    style={{ maxWidth: '200px' }}
+                  />
+                  <p style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: 'var(--gray-500)' }}>
+                    This amount will be deducted from the customer's payment as MistriJi's fee using Razorpay Route. The remainder will be sent directly to the assigned worker's bank account.
+                  </p>
+                </div>
+              )}
+
+              <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: '1rem' }}>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={saving}
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                >
+                  <Save size={18} />
+                  {saving ? 'Saving...' : 'Save Settings'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {activeSettingsTab === 'security' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', marginBottom: '2rem' }}>

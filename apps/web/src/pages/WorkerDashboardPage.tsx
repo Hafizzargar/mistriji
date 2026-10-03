@@ -8,8 +8,9 @@ import { SupportTicketModal } from '@/components/SupportTicketModal'
 import {
   HardHat, Inbox, Briefcase, History, CheckCircle, XCircle,
   MapPin, User, Phone, Clock, Navigation, Star, AlertTriangle,
-  RefreshCw, ChevronRight, LifeBuoy, Ticket
+  RefreshCw, ChevronRight, LifeBuoy, Ticket, Zap
 } from 'lucide-react'
+import { fetchPaymentSettings, PaymentSettings } from '@/lib/settings'
 
 // ─────────────────────────────────────────────────────────────────
 // Types
@@ -32,6 +33,7 @@ interface Job {
   skills: Skill | null
   customer: { phone: string; profiles: { name: string | null } | null } | null
   rating: { score: number; comment: string | null } | null
+  payments?: { id: string; status: string; payment_id: string }[]
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -152,6 +154,7 @@ export function WorkerDashboardPage() {
   const [actioningId, setActioningId] = useState<string | null>(null)
   const [isAvailable, setIsAvailable] = useState(customer?.is_available !== false)
   const [isSupportOpen, setIsSupportOpen] = useState(false)
+  const [paymentSettings, setPaymentSettings] = useState<PaymentSettings | null>(null)
 
   // Stats
   const [totalCompleted, setTotalCompleted] = useState(0)
@@ -214,7 +217,8 @@ export function WorkerDashboardPage() {
           id, status, address, area, price, description, created_at, skill_id, customer_id, worker_id, contact_name, contact_phone,
           skills (name, icon),
           customer:users!jobs_customer_id_fkey (phone, profiles (name)),
-          ratings!ratings_job_id_fkey (score, comment)
+          ratings!ratings_job_id_fkey (score, comment),
+          payments (id, status, payment_id)
         `)
         .eq('worker_id', customer.id)
         .in('status', ['completed', 'cancelled'])
@@ -250,6 +254,7 @@ export function WorkerDashboardPage() {
 
   useEffect(() => {
     fetchJobs()
+    fetchPaymentSettings().then(setPaymentSettings)
   }, [fetchJobs])
 
   // ── Realtime subscription for new jobs ─────────────────────
@@ -351,13 +356,78 @@ export function WorkerDashboardPage() {
     }
   }
 
-  // ── Update Status ─────────────────────────────────────────
-  async function handleStatusUpdate(jobId: string, newStatus: string) {
+  // ── Complete Job Modal State ─────────────────────────────
+  const [completeJobId, setCompleteJobId] = useState<string | null>(null)
+  const [completePrice, setCompletePrice] = useState('')
+
+  // ── Actions ──────────────────────────────────────────────
+  async function handleAcceptJob(jobId: string) {
     setActioningId(jobId)
     try {
       const { error } = await supabase
         .from('jobs')
-        .update({ status: newStatus })
+        .update({ worker_id: customer?.id, status: 'accepted' })
+        .eq('id', jobId)
+      
+      if (error) throw error
+
+      const { data: jobInfo } = await supabase.from('jobs').select('customer_id, contact_phone').eq('id', jobId).single()
+      if (jobInfo?.customer_id) {
+         await supabase.from('notifications').insert({
+           user_id: jobInfo.customer_id,
+           title: 'Job Update',
+           message: 'Your service request has been accepted and a worker is assigned.',
+           type: 'job_update',
+           reference_id: jobId
+         })
+         
+         // Notify Admin via Email and In-App
+         notifyAdmin({
+           message: `MistriJi: Job ${jobId.substring(0,6)} was ACCEPTED by worker ${customer?.name || 'Unknown'}.`,
+           link: getAdminUrl('/jobs')
+         })
+         try {
+           await supabase.rpc('notify_admins', {
+             p_title: 'Job Accepted',
+             p_message: `Job ${jobId.substring(0,6)} was ACCEPTED by worker ${customer?.name || 'Unknown'}.`,
+             p_type: 'job_update',
+             p_reference_id: jobId
+           })
+         } catch (notifErr) {
+           console.error('Failed to create admin in-app notification', notifErr)
+         }
+      }
+
+      await fetchJobs()
+      toast.success('Job accepted! It is now in your Active jobs.')
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to accept job')
+    } finally {
+      setActioningId(null)
+    }
+  }
+
+  async function handleSkipJob(jobId: string) {
+    setActioningId(jobId)
+    try {
+      setIncomingJobs(prev => prev.filter(j => j.id !== jobId))
+      toast.info('Job skipped')
+    } finally {
+      setActioningId(null)
+    }
+  }
+
+  // ── Update Status ─────────────────────────────────────────
+  async function handleStatusUpdate(jobId: string, newStatus: string, price?: number) {
+    setActioningId(jobId)
+    try {
+      const updates: any = { status: newStatus }
+      if (price !== undefined) {
+        updates.price = price
+      }
+      const { error } = await supabase
+        .from('jobs')
+        .update(updates)
         .eq('id', jobId)
 
       if (error) throw error
@@ -429,6 +499,13 @@ export function WorkerDashboardPage() {
   // ─────────────────────────────────────────────────────────────
   return (
     <div className="worker-dashboard">
+      {paymentSettings?.workerPaymentsEnabled && (
+        <div style={{ background: 'linear-gradient(to right, #4f46e5, #9333ea)', color: '#fff', padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', fontSize: '0.85rem' }}>
+          <Zap size={16} style={{ flexShrink: 0 }} />
+          <span><b>Earn More with MistriJi!</b> Subscribe to our commission model to receive direct digital payments and secure your bookings.</span>
+        </div>
+      )}
+      
       {/* ── Hero Header ─────────────────────────────────────── */}
       <div className="worker-hero">
         <div className="worker-hero-inner">
@@ -672,7 +749,14 @@ export function WorkerDashboardPage() {
                           {nextLabel && nextStatus && (
                             <button
                               className={`worker-status-btn ${nextStatus === 'completed' ? 'complete' : ''}`}
-                              onClick={() => handleStatusUpdate(job.id, nextStatus)}
+                              onClick={() => {
+                                if (nextStatus === 'completed') {
+                                  setCompleteJobId(job.id)
+                                  setCompletePrice('')
+                                } else {
+                                  handleStatusUpdate(job.id, nextStatus)
+                                }
+                              }}
                               disabled={actioningId === job.id}
                             >
                               {actioningId === job.id ? 'Updating…' : <>{nextLabel.emoji} {nextLabel.label}</>}
@@ -734,6 +818,23 @@ export function WorkerDashboardPage() {
                           {job.price && (
                             <div className="worker-job-detail-row">
                               <span style={{ fontWeight: 700, color: 'var(--brand-700)' }}>₹{job.price}</span>
+                              {isCompleted && (
+                                <span style={{
+                                  marginLeft: '0.5rem',
+                                  fontSize: '0.7rem',
+                                  fontWeight: 700,
+                                  padding: '0.15rem 0.5rem',
+                                  borderRadius: '999px',
+                                  ...(job.payments && (job.payments as any[]).some((p: any) => p.status === 'captured')
+                                    ? { background: '#d1fae5', color: '#065f46', border: '1px solid #6ee7b7' }
+                                    : { background: '#fef9c3', color: '#92400e', border: '1px solid #fde047' }
+                                  )
+                                }}>
+                                  {job.payments && (job.payments as any[]).some((p: any) => p.status === 'captured')
+                                    ? '✅ Paid Online'
+                                    : '💰 Cash / Pending'}
+                                </span>
+                              )}
                             </div>
                           )}
                         </div>
@@ -768,20 +869,68 @@ export function WorkerDashboardPage() {
 
         {/* Refresh button */}
         {!loading && (
-          <div style={{ textAlign: 'center', padding: '1rem 0' }}>
-            <button
-              onClick={fetchJobs}
-              style={{
-                border: 'none', background: 'transparent', color: 'var(--gray-400)',
-                fontSize: '0.75rem', cursor: 'pointer', display: 'inline-flex',
-                alignItems: 'center', gap: '0.3rem', fontWeight: 600,
-              }}
-            >
-              <RefreshCw size={12} /> Refresh
-            </button>
-          </div>
-        )}
+        <div style={{ textAlign: 'center', padding: '1rem 0' }}>
+          <button
+            onClick={fetchJobs}
+            style={{
+              border: 'none', background: 'transparent', color: 'var(--gray-400)',
+              fontSize: '0.75rem', cursor: 'pointer', display: 'inline-flex',
+              alignItems: 'center', gap: '0.3rem', fontWeight: 600,
+            }}
+          >
+            <RefreshCw size={12} /> Refresh
+          </button>
+        </div>
+      )}
       </div>
+
+      {/* ── Complete Job Modal ─────────────────────────────────────── */}
+      {completeJobId && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }} onClick={() => setCompleteJobId(null)}>
+          <div style={{ background: '#fff', borderRadius: '1.25rem', width: '100%', maxWidth: '400px', padding: '1.5rem', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)' }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#1e1b4b', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span>✅</span> Complete Job
+            </div>
+            <p style={{ color: '#64748b', fontSize: '0.875rem', marginBottom: '1.25rem' }}>
+              Please enter the final amount (₹) charged for this service. This is required to process customer payments.
+            </p>
+            <div style={{ marginBottom: '1.5rem' }}>
+              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#334155', marginBottom: '0.35rem', textTransform: 'uppercase' }}>Total Amount (₹)</label>
+              <input
+                type="number"
+                min="0"
+                value={completePrice}
+                onChange={e => setCompletePrice(e.target.value)}
+                placeholder="e.g. 500"
+                style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '0.75rem', border: '2px solid #e2e8f0', fontSize: '1.1rem', fontWeight: 700, color: '#1e1b4b', outline: 'none' }}
+                autoFocus
+              />
+            </div>
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button 
+                onClick={() => setCompleteJobId(null)}
+                style={{ flex: 1, padding: '0.75rem', borderRadius: '0.75rem', border: 'none', background: '#f1f5f9', color: '#475569', fontWeight: 700, cursor: 'pointer' }}
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={() => {
+                  if (!completePrice || isNaN(Number(completePrice))) {
+                    toast.error('Please enter a valid amount')
+                    return
+                  }
+                  handleStatusUpdate(completeJobId, 'completed', Number(completePrice))
+                  setCompleteJobId(null)
+                }}
+                disabled={actioningId === completeJobId}
+                style={{ flex: 1, padding: '0.75rem', borderRadius: '0.75rem', border: 'none', background: '#059669', color: '#ffffff', fontWeight: 700, cursor: 'pointer', opacity: actioningId === completeJobId ? 0.7 : 1 }}
+              >
+                {actioningId === completeJobId ? 'Updating...' : 'Submit & Complete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Worker Support & Ticket Modal */}
       <SupportTicketModal

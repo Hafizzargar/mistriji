@@ -85,11 +85,55 @@ router.post('/create-order', async (req, res) => {
   }
 
   try {
+    // Check for Razorpay Route worker split
+    let transferOptions = [];
+    let workerShare = amount; // default: worker gets all if we could somehow transfer, but we can't if no account. If no account, admin gets all.
+    let commissionEarned = 0;
+
+    if (workerId) {
+      // 1. Get worker's Razorpay Account ID
+      const { data: worker } = await supabase.from('workers').select('razorpay_account_id').eq('id', workerId).single();
+      
+      if (worker && worker.razorpay_account_id) {
+        // 2. Get Commission Settings
+        const { data: settingsData } = await supabase.from('system_settings').select('value').eq('key', 'mistriji_payment_settings').maybeSingle();
+        const settings = settingsData?.value || { type: 'percentage', value: 10 }; // Default 10%
+
+        if (settings.type === 'percentage') {
+          commissionEarned = Math.round(amount * (settings.value / 100));
+        } else {
+          // Fixed fee, convert setting value to paise (assuming setting is in INR)
+          commissionEarned = Math.min(amount, settings.value * 100); 
+        }
+
+        // Only do transfer if worker payments are enabled, otherwise don't split via Route
+        if (settings.workerPaymentsEnabled !== false) {
+          workerShare = amount - commissionEarned;
+        } else {
+          workerShare = 0; // Skip transfer
+        }
+
+        if (workerShare > 0) {
+          transferOptions = [{
+            account: worker.razorpay_account_id,
+            amount: workerShare,
+            currency: 'INR',
+            notes: {
+              jobId: jobId || 'none'
+            },
+            on_hold: 0 // Settled immediately according to route rules
+          }];
+        }
+      }
+    }
+
     const options = {
       amount: amount, 
       currency: currency || 'INR',
-      receipt: `rcpt_${Date.now()}`
+      receipt: `rcpt_${Date.now()}`,
+      ...(transferOptions.length > 0 && { transfers: transferOptions })
     };
+    
     const order = await razorpay.orders.create(options);
 
     const { error } = await supabase.from('payments').insert([{
@@ -100,7 +144,10 @@ router.post('/create-order', async (req, res) => {
       user_id: userId,
       job_id: jobId || null,
       worker_id: workerId || null,
-      receipt_id: options.receipt
+      receipt_id: options.receipt,
+      commission_earned: commissionEarned,
+      worker_share: workerShare,
+      is_route_split: transferOptions.length > 0
     }]);
 
     if (error) {

@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { useToast } from '@/contexts/ToastContext'
 import { useCustomerAuth } from '@/contexts/CustomerAuthContext'
 import { JAMMU_AREAS, resolveJammuInput, findClosestJammuArea } from '@/lib/jammuCoordinates'
-import { fetchSystemAnnouncement, SystemAnnouncement, isServicePaused, fetchOperatingDistricts, PlatformFeatures, fetchPlatformFeatures } from '@/lib/settings'
+import { fetchSystemAnnouncement, SystemAnnouncement, isServicePaused, fetchOperatingDistricts, PlatformFeatures, fetchPlatformFeatures, fetchLocationCatalog, LocationCatalogEntry } from '@/lib/settings'
 import { ServiceIcon } from '@/components/ServiceIcon'
 import { Navigation, Clock, Phone, LogIn, MapPin, ChevronRight, ArrowLeft, CheckCircle, ChevronDown, ShieldCheck, Zap, Users, Star } from 'lucide-react'
 import { getAdminUrl } from '@/api'
@@ -22,6 +22,8 @@ export function HomePage({ currentArea, onAreaChange }: { currentArea: string; o
 
   const [skills, setSkills] = useState<Skill[]>([])
   const [allowedDistricts, setAllowedDistricts] = useState<string[]>([])
+  const [catalog, setCatalog] = useState<LocationCatalogEntry[]>([])
+  const [selectedDistrict, setSelectedDistrict] = useState('')
   const [announcement, setAnnouncement] = useState<SystemAnnouncement | null>(null)
   const [platformFeatures, setPlatformFeatures] = useState<PlatformFeatures | null>(null)
   const [useGps, setUseGps] = useState(false)
@@ -29,20 +31,37 @@ export function HomePage({ currentArea, onAreaChange }: { currentArea: string; o
   const [locationInput, setLocationInput] = useState('')
   const [showPinSearch, setShowPinSearch] = useState(false)
   const [districtOpen, setDistrictOpen] = useState(false)
+  const [areaOpen, setAreaOpen] = useState(false)
+  const [serviceOpen, setServiceOpen] = useState(false)
   const [step, setStep] = useState(1)
   const [selectedSkillId, setSelectedSkillId] = useState('')
   const [contactName, setContactName] = useState('')
   const [contactPhone, setContactPhone] = useState('')
   const [address, setAddress] = useState('')
+  const [description, setDescription] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submittedJob, setSubmittedJob] = useState<{ id: string } | null>(null)
   const gpsRef = useRef(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const serviceDropdownRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     fetchSystemAnnouncement().then(setAnnouncement)
     fetchPlatformFeatures().then(setPlatformFeatures)
-    fetchOperatingDistricts().then(list => { const v = list.filter(Boolean); setAllowedDistricts(v.length ? v : []) })
+    Promise.all([fetchLocationCatalog(), fetchOperatingDistricts()]).then(([cat, activeDists]) => {
+      // Filter catalog to only include districts marked as Active
+      const activeCatalog = cat.filter(c => activeDists.includes(c.district))
+      setCatalog(activeCatalog)
+      const dists = activeCatalog.map(c => c.district).filter(Boolean)
+      setAllowedDistricts(dists)
+      
+      const matchingCat = activeCatalog.find(c => c.areas.includes(currentArea) || c.district === currentArea)
+      if (matchingCat) {
+        setSelectedDistrict(matchingCat.district)
+      } else if (dists.length > 0) {
+        setSelectedDistrict(dists[0])
+      }
+    })
     supabase.from('skills').select('id, name, icon, category').eq('is_active', true).order('sort_order').then(({ data }) => setSkills(data ?? []))
   }, [])
 
@@ -87,6 +106,9 @@ export function HomePage({ currentArea, onAreaChange }: { currentArea: string; o
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setDistrictOpen(false)
       }
+      if (serviceDropdownRef.current && !serviceDropdownRef.current.contains(e.target as Node)) {
+        setServiceOpen(false)
+      }
     }
     document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
@@ -94,7 +116,7 @@ export function HomePage({ currentArea, onAreaChange }: { currentArea: string; o
 
   const servicePaused = isServicePaused(announcement)
   const selectedSkill = skills.find(s => s.id === selectedSkillId)
-  const selectedDistrict = allowedDistricts.includes(currentArea) ? currentArea : (allowedDistricts[0] || '')
+  const activeAreas = catalog.find(c => c.district === selectedDistrict)?.areas || []
 
   function handleGps() {
     if (!navigator.geolocation) { toast.error('GPS not supported'); return }
@@ -137,7 +159,8 @@ export function HomePage({ currentArea, onAreaChange }: { currentArea: string; o
       const statusToSet = platformFeatures?.assignment_mode === 'manual' ? 'pending_dispatch' : 'requested'
       const payload: any = {
         customer_id: customer.id, skill_id: selectedSkillId, area: currentArea,
-        address: address || currentArea, status: statusToSet, price: null,
+        address: address || currentArea, description: description.trim() || null,
+        status: statusToSet, price: null,
         contact_name: contactName, contact_phone: clean
       }
       const { data: job, error: jErr } = await supabase.from('jobs').insert(payload).select('id').single()
@@ -157,12 +180,13 @@ export function HomePage({ currentArea, onAreaChange }: { currentArea: string; o
   }
 
   function reset() {
-    setSubmittedJob(null); setStep(1); setSelectedSkillId(''); setAddress('')
+    setSubmittedJob(null); setStep(1); setSelectedSkillId(''); setAddress(''); setDescription('')
     setContactName(customer?.name || ''); setContactPhone(customer?.phone || '')
   }
 
   // ── SUCCESS SCREEN AND MAIN RETURN ──────────────────────────────────────
 
+  return (
     <>
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
@@ -216,15 +240,18 @@ export function HomePage({ currentArea, onAreaChange }: { currentArea: string; o
           margin: auto 0;
         }
 
-        /* ── STEP INDICATOR ── */
-        .hp-steps { display:flex; align-items:center; margin-bottom:1.25rem; }
-        .hp-step { display:flex; flex-direction:column; align-items:center; gap:4px; flex:1; }
-        .hp-step-dot { width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.8rem; font-weight:800; transition:all 0.25s; border:2px solid transparent; }
-        .hp-step-dot.done { background:#4f46e5; border-color:#818cf8; color:#fff; }
-        .hp-step-dot.active { background:#4f46e5; border-color:#818cf8; color:#fff; box-shadow:0 0 0 4px rgba(79,70,229,0.25); }
-        .hp-step-dot.idle { background:rgba(255,255,255,0.06); border-color:rgba(255,255,255,0.15); color:rgba(255,255,255,0.35); }
-        .hp-step-label { font-size:0.65rem; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; }
-        .hp-step-line { flex:1; height:2px; margin-bottom:20px; border-radius:1px; transition:background 0.3s; }
+        /* ── STEP INDICATOR V2 (Horizontal & Sleek) ── */
+        .hp-steps-v2 { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; }
+        .hp-step-v2 { display: flex; align-items: center; gap: 0.4rem; z-index: 1; }
+        .hp-step-v2 .dot { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 800; border: 2px solid transparent; transition: all 0.3s; }
+        .hp-step-v2.done .dot { background: #4f46e5; border-color: #818cf8; color: #fff; }
+        .hp-step-v2.active .dot { background: #4f46e5; border-color: #818cf8; color: #fff; box-shadow: 0 0 0 3px rgba(79,70,229,0.3); }
+        .hp-step-v2:not(.done):not(.active) .dot { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.15); color: rgba(255,255,255,0.35); }
+        .hp-step-v2 .label { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; transition: color 0.3s; }
+        .hp-step-v2.done .label, .hp-step-v2.active .label { color: #c7d2fe; }
+        .hp-step-v2:not(.done):not(.active) .label { color: rgba(255,255,255,0.3); }
+        .hp-line-v2 { flex: 1; height: 2px; margin: 0 0.5rem; border-radius: 1px; background: rgba(255,255,255,0.1); transition: background 0.3s; }
+        .hp-line-v2.done { background: #4f46e5; }
 
         /* ── INPUTS ── */
         .hp-input {
@@ -380,7 +407,6 @@ export function HomePage({ currentArea, onAreaChange }: { currentArea: string; o
         .hp-mobile-nav-item.active { color:#818cf8; }
         .hp-mobile-nav-item svg { margin-bottom:1px; }
 
-        /* ── RESPONSIVE ── */
         @media (max-width: 900px) {
           .hp-body {
             flex-direction: column;
@@ -401,7 +427,7 @@ export function HomePage({ currentArea, onAreaChange }: { currentArea: string; o
             justify-content: flex-start;
           }
           .hp-card { max-width: 100%; padding: 1.5rem 1.25rem; margin: 0; }
-          .hp-features-panel { max-width: 100%; padding: 1.25rem; margin: 1rem 0 0 0; }
+          .hp-features-panel { display: none; }
           .hp-mobile-nav { display:block; }
           .hp-page { background-attachment: scroll; }
         }
@@ -440,23 +466,21 @@ export function HomePage({ currentArea, onAreaChange }: { currentArea: string; o
               </div>
             ) : (
               <>
-                {/* Step indicator */}
-                <div className="hp-steps">
+                {/* Sleek Horizontal Step Indicator */}
+                <div className="hp-steps-v2">
                   {['Location', 'Service', 'Confirm'].map((label, i) => {
-                const n = i + 1; const done = n < step; const active = n === step
-                return (
-                  <React.Fragment key={label}>
-                    <div className="hp-step">
-                      <div className={`hp-step-dot ${done ? 'done' : active ? 'active' : 'idle'}`}>
-                        {done ? '✓' : n}
-                      </div>
-                      <div className="hp-step-label" style={{ color: active || done ? '#c7d2fe' : 'rgba(255,255,255,0.3)' }}>{label}</div>
-                    </div>
-                    {i < 2 && <div className="hp-step-line" style={{ background: done ? '#4f46e5' : 'rgba(255,255,255,0.1)' }} />}
-                  </React.Fragment>
-                )
-              })}
-            </div>
+                    const n = i + 1; const done = n < step; const active = n === step
+                    return (
+                      <React.Fragment key={label}>
+                        <div className={`hp-step-v2 ${done ? 'done' : active ? 'active' : ''}`}>
+                          <div className="dot">{done ? '✓' : n}</div>
+                          <div className="label">{label}</div>
+                        </div>
+                        {i < 2 && <div className={`hp-line-v2 ${done ? 'done' : ''}`} />}
+                      </React.Fragment>
+                    )
+                  })}
+                </div>
 
             {/* Paused banner */}
             {servicePaused.isPaused && (
@@ -473,12 +497,13 @@ export function HomePage({ currentArea, onAreaChange }: { currentArea: string; o
                   <p style={{ color:'rgba(255,255,255,0.45)', fontSize:'0.85rem', margin:0 }}>Select your district in Jammu &amp; Kashmir</p>
                 </div>
 
-                {/* Custom Dropdown */}
-                <div className="hp-dropdown" ref={dropdownRef}>
+                {/* District Dropdown */}
+                <div style={{ position: 'relative', zIndex: 50 }}>
+                  <div className="hp-dropdown" ref={dropdownRef}>
                   <button
                     type="button"
                     className={`hp-dropdown-trigger${districtOpen ? ' open' : ''}`}
-                    onClick={() => setDistrictOpen(o => !o)}
+                    onClick={() => { setDistrictOpen(o => !o); setAreaOpen(false); }}
                   >
                     <span className="hp-dropdown-label">
                       <MapPin size={11} /> District
@@ -495,7 +520,16 @@ export function HomePage({ currentArea, onAreaChange }: { currentArea: string; o
                           key={d}
                           type="button"
                           className={`hp-dropdown-item${d === selectedDistrict ? ' selected' : ''}`}
-                          onClick={() => { onAreaChange(d); setUseGps(false); setDistrictOpen(false) }}
+                          onClick={() => { 
+                            setSelectedDistrict(d); 
+                            setDistrictOpen(false);
+                            const nextAreas = catalog.find(c => c.district === d)?.areas || [];
+                            if (nextAreas.length > 0) {
+                              onAreaChange(nextAreas[0]);
+                            } else {
+                              onAreaChange(d);
+                            }
+                          }}
                         >
                           {d}
                           {d === selectedDistrict && <span className="hp-dropdown-check">✓</span>}
@@ -504,6 +538,49 @@ export function HomePage({ currentArea, onAreaChange }: { currentArea: string; o
                     </div>
                   )}
                 </div>
+                </div>
+
+                {/* Area Dropdown */}
+                {selectedDistrict && activeAreas.length > 0 && (
+                  <div style={{ animation:'fadeUp 0.2s ease', position:'relative', zIndex:40 }}>
+                    <div className="hp-dropdown">
+                      <button
+                        type="button"
+                        className={`hp-dropdown-trigger${areaOpen ? ' open' : ''}`}
+                        onClick={() => { setAreaOpen(o => !o); setDistrictOpen(false); }}
+                      >
+                        <span className="hp-dropdown-label">
+                          📍 Area
+                        </span>
+                        <span className="hp-dropdown-value">
+                          {activeAreas.includes(currentArea) ? currentArea : 'Select your area...'}
+                        </span>
+                        <ChevronDown size={17} className={`hp-dropdown-chevron${areaOpen ? ' open' : ''}`} />
+                      </button>
+                      {areaOpen && (
+                        <div className="hp-dropdown-menu">
+                          {activeAreas.map(a => (
+                            <button
+                              key={a}
+                              type="button"
+                              className={`hp-dropdown-item${a === currentArea ? ' selected' : ''}`}
+                              onClick={() => { onAreaChange(a); setUseGps(false); setAreaOpen(false); setStep(2); }}
+                            >
+                              {a}
+                              {a === currentArea && <span className="hp-dropdown-check">✓</span>}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+                
+                {selectedDistrict && activeAreas.length === 0 && (
+                  <div style={{ padding: '0.75rem', background: 'rgba(255,255,255,0.05)', borderRadius: '0.5rem', fontSize: '0.85rem', color: 'rgba(255,255,255,0.5)', textAlign: 'center' }}>
+                    No areas available in this district yet.
+                  </div>
+                )}
 
                 <div className="hp-divider">
                   <div className="hp-divider-line" />
@@ -525,7 +602,7 @@ export function HomePage({ currentArea, onAreaChange }: { currentArea: string; o
                     <LogIn size={17} /> Login / Register to Book
                   </button>
                 ) : (
-                  <button type="button" onClick={() => setStep(2)} disabled={allowedDistricts.length === 0} className="hp-btn-primary">
+                  <button type="button" onClick={() => setStep(2)} className="hp-btn-primary">
                     Next: Choose Service <ChevronRight size={18} />
                   </button>
                 )}
@@ -539,14 +616,43 @@ export function HomePage({ currentArea, onAreaChange }: { currentArea: string; o
                   <h2 style={{ color:'#fff', fontWeight:800, fontSize:'1.35rem', margin:'0 0 0.25rem' }}>What service do you need?</h2>
                   <p style={{ color:'rgba(255,255,255,0.4)', fontSize:'0.85rem', margin:0 }}>Tap a service to select</p>
                 </div>
-                <div className="hp-svc-grid">
-                  {skills.map(skill => (
-                    <button key={skill.id} type="button" className={`hp-svc-card${skill.id === selectedSkillId ? ' sel' : ''}`} onClick={() => setSelectedSkillId(skill.id)}>
-                      <span style={{ fontSize:'1.75rem', lineHeight:1 }}><ServiceIcon name={skill.name} icon={skill.icon} category={skill.category} size={26} /></span>
-                      <span style={{ lineHeight:1.25 }}>{skill.name}</span>
-                      {skill.id === selectedSkillId && <span style={{ fontSize:'0.6rem', background:'rgba(129,140,248,0.3)', color:'#a5b4fc', padding:'1px 6px', borderRadius:99 }}>✓ Selected</span>}
-                    </button>
-                  ))}
+                <div className="hp-dropdown" ref={serviceDropdownRef}>
+                  <button
+                    type="button"
+                    className={`hp-dropdown-trigger${serviceOpen ? ' open' : ''}`}
+                    onClick={() => setServiceOpen(o => !o)}
+                  >
+                    <span className="hp-dropdown-label">
+                      <Zap size={11} /> Service
+                    </span>
+                    <span className="hp-dropdown-value">
+                      {selectedSkill ? (
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                          <ServiceIcon name={selectedSkill.name} icon={selectedSkill.icon} category={selectedSkill.category} size={16} />
+                          {selectedSkill.name}
+                        </span>
+                      ) : 'Select a Service'}
+                    </span>
+                    <ChevronDown size={17} className={`hp-dropdown-chevron${serviceOpen ? ' open' : ''}`} />
+                  </button>
+                  {serviceOpen && skills.length > 0 && (
+                    <div className="hp-dropdown-menu">
+                      {skills.map(skill => (
+                        <button
+                          key={skill.id}
+                          type="button"
+                          className={`hp-dropdown-item${skill.id === selectedSkillId ? ' selected' : ''}`}
+                          onClick={() => { setSelectedSkillId(skill.id); setServiceOpen(false) }}
+                        >
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <ServiceIcon name={skill.name} icon={skill.icon} category={skill.category} size={18} />
+                            {skill.name}
+                          </span>
+                          {skill.id === selectedSkillId && <span className="hp-dropdown-check">✓</span>}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div style={{ display:'flex', gap:'0.625rem' }}>
                   <button type="button" onClick={() => setStep(1)} className="hp-btn-secondary" style={{ flex:1 }}>
@@ -574,13 +680,6 @@ export function HomePage({ currentArea, onAreaChange }: { currentArea: string; o
                   </div>
                 ) : (
                   <>
-                    <div>
-                      <h2 style={{ color:'#fff', fontWeight:800, fontSize:'1.25rem', margin:'0 0 0.25rem' }}>Your Contact Details</h2>
-                      <div style={{ background:'rgba(79,70,229,0.12)', border:'1px solid rgba(99,102,241,0.2)', borderRadius:'0.75rem', padding:'0.625rem 0.875rem', display:'flex', flexWrap:'wrap', gap:'0.5rem 1.25rem', fontSize:'0.85rem', color:'#a5b4fc', fontWeight:600, marginTop:'0.5rem' }}>
-                        <span>📍 {currentArea}</span>
-                        {selectedSkill && <span>{selectedSkill.icon || '🔧'} {selectedSkill.name}</span>}
-                      </div>
-                    </div>
                     <div style={{ display:'flex', flexDirection:'column', gap:'0.75rem' }}>
                       <div>
                         <label style={{ display:'block', color:'rgba(255,255,255,0.5)', fontSize:'0.75rem', fontWeight:700, marginBottom:'0.375rem', textTransform:'uppercase', letterSpacing:'0.4px' }}>Full Name</label>
@@ -598,6 +697,10 @@ export function HomePage({ currentArea, onAreaChange }: { currentArea: string; o
                       <div>
                         <label style={{ display:'block', color:'rgba(255,255,255,0.5)', fontSize:'0.75rem', fontWeight:700, marginBottom:'0.375rem', textTransform:'uppercase', letterSpacing:'0.4px' }}>Address <span style={{ fontWeight:400, textTransform:'none', opacity:0.6 }}>(optional)</span></label>
                         <input className="hp-input" placeholder="House no., lane, landmark…" value={address} onChange={e => setAddress(e.target.value)} />
+                      </div>
+                      <div>
+                        <label style={{ display:'block', color:'rgba(255,255,255,0.5)', fontSize:'0.75rem', fontWeight:700, marginBottom:'0.375rem', textTransform:'uppercase', letterSpacing:'0.4px' }}>Describe the problem <span style={{ fontWeight:400, textTransform:'none', opacity:0.6 }}>(optional)</span></label>
+                        <textarea className="hp-input" placeholder="E.g. Leaking pipe in the kitchen..." value={description} onChange={e => setDescription(e.target.value)} style={{ height: '80px', paddingTop: '0.625rem', resize: 'none' }} />
                       </div>
                     </div>
                     <form onSubmit={handleSubmit} style={{ display:'flex', flexDirection:'column', gap:'0.625rem' }}>
@@ -651,7 +754,7 @@ export function HomePage({ currentArea, onAreaChange }: { currentArea: string; o
         </nav>
       </div>
     </>
-  
+  )
 }
 
 export default HomePage

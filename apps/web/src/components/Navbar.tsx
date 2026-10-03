@@ -100,9 +100,6 @@ export function Navbar({ currentArea }: { currentArea: string }) {
               <div className="navbar-brand-title">
                 Mistri<span style={{ color: '#818cf8' }}>Ji</span>
               </div>
-              <div className="navbar-brand-subtitle">
-                JAMMU LOCAL WORKERS
-              </div>
             </div>
           </Link>
 
