@@ -1236,6 +1236,14 @@ export function SettingsPage() {
               <label className="input-label">Built With Text</label>
               <input className="input" value={footerSettings.builtWithText} onChange={e => setFooterSettings(prev => ({ ...prev, builtWithText: e.target.value }))} />
             </div>
+            <div className="input-wrapper" style={{ margin: 0 }}>
+              <label className="input-label">Google Play Store URL</label>
+              <input className="input" placeholder="https://play.google.com/..." value={footerSettings.playStoreUrl || ''} onChange={e => setFooterSettings(prev => ({ ...prev, playStoreUrl: e.target.value }))} />
+            </div>
+            <div className="input-wrapper" style={{ margin: 0 }}>
+              <label className="input-label">Apple App Store URL</label>
+              <input className="input" placeholder="https://apps.apple.com/..." value={footerSettings.appStoreUrl || ''} onChange={e => setFooterSettings(prev => ({ ...prev, appStoreUrl: e.target.value }))} />
+            </div>
           </div>
         </div>
       )}

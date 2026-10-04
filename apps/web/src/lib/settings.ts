@@ -83,6 +83,8 @@ export interface FooterSettings {
   officeAddress: string
   copyrightText: string
   builtWithText: string
+  playStoreUrl?: string
+  appStoreUrl?: string
 }
 
 export const DEFAULT_FOOTER_SETTINGS: FooterSettings = {
@@ -96,6 +98,8 @@ export const DEFAULT_FOOTER_SETTINGS: FooterSettings = {
   officeAddress: 'Jammu Head Office, J&K',
   copyrightText: '© 2026 MistriJi Jammu. All rights reserved.',
   builtWithText: 'Built with ❤️ for Jammu Community',
+  playStoreUrl: '',
+  appStoreUrl: ''
 }
 
 export function normalizeLocationCatalog(value: any): LocationCatalogEntry[] {

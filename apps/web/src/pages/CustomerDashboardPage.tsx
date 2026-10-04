@@ -15,7 +15,7 @@ function shortId(uuid: string) {
   return 'MST-' + uuid.replace(/-/g, '').slice(0, 6).toUpperCase()
 }
 
-export function HomePage({ currentArea, onAreaChange }: { currentArea: string; onAreaChange: (a: string) => void }) {
+export function CustomerDashboardPage({ currentArea, onAreaChange }: { currentArea: string; onAreaChange: (a: string) => void }) {
   const toast = useToast()
   const navigate = useNavigate()
   const { isLoggedIn, customer, openLoginModal } = useCustomerAuth()
@@ -67,11 +67,15 @@ export function HomePage({ currentArea, onAreaChange }: { currentArea: string; o
 
   useEffect(() => {
     if (isLoggedIn && customer) {
+      if (customer.role === 'worker') {
+        navigate('/worker/dashboard', { replace: true })
+        return
+      }
       setContactName(prev => prev || customer.name || '')
       setContactPhone(prev => prev || customer.phone || '')
       setAddress(prev => prev || customer.address || '')
     }
-  }, [isLoggedIn, customer])
+  }, [isLoggedIn, customer, navigate])
 
   useEffect(() => {
     if (!gpsRef.current && navigator.geolocation) {
@@ -185,6 +189,10 @@ export function HomePage({ currentArea, onAreaChange }: { currentArea: string; o
   }
 
   // ── SUCCESS SCREEN AND MAIN RETURN ──────────────────────────────────────
+
+  if (isLoggedIn && customer?.role === 'worker') {
+    return null
+  }
 
   return (
     <>
@@ -458,7 +466,7 @@ export function HomePage({ currentArea, onAreaChange }: { currentArea: string; o
                   Status: Admin Reviewing
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
-                  <button onClick={() => navigate('/my-bookings')} className="hp-btn-primary">
+                  <button onClick={() => navigate('/customer/bookings')} className="hp-btn-primary">
                     Track My Request <ChevronRight size={16} />
                   </button>
                   <button onClick={reset} className="hp-btn-secondary">Submit Another Request</button>
@@ -745,8 +753,8 @@ export function HomePage({ currentArea, onAreaChange }: { currentArea: string; o
             <button className="hp-mobile-nav-item active"><Star size={20} /><span>Home</span></button>
             {isLoggedIn && (
               <>
-                <button className="hp-mobile-nav-item" onClick={() => navigate('/my-bookings')}><CheckCircle size={20} /><span>Bookings</span></button>
-                <button className="hp-mobile-nav-item" onClick={() => navigate('/notifications')}><Clock size={20} /><span>Messages</span></button>
+                <button className="hp-mobile-nav-item" onClick={() => navigate('/customer/bookings')}><CheckCircle size={20} /><span>Bookings</span></button>
+                <button className="hp-mobile-nav-item" onClick={() => navigate('/customer/notifications')}><Clock size={20} /><span>Messages</span></button>
               </>
             )}
             <button className="hp-mobile-nav-item" onClick={isLoggedIn ? undefined : openLoginModal}><Users size={20} /><span>Profile</span></button>
@@ -757,4 +765,4 @@ export function HomePage({ currentArea, onAreaChange }: { currentArea: string; o
   )
 }
 
-export default HomePage
+export default CustomerDashboardPage

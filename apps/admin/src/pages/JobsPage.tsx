@@ -469,10 +469,6 @@ export function JobsPage() {
           regionalWorkers = [assignedWorker, ...regionalWorkers]
         }
 
-        // 2. Split regional workers into those who have the required skill, and those who don't
-        const matchingSkillWorkers = regionalWorkers.filter(w => (w as any).worker_skills?.some((ws: any) => ws.skill_id === jobSkillId))
-        const otherSkillWorkers = regionalWorkers.filter(w => !matchingSkillWorkers.find(mw => mw.id === w.id))
-        
         return (
           <select
             className="input"
@@ -481,31 +477,17 @@ export function JobsPage() {
             onChange={e => handleAssignWorker(j.id, e.target.value)}
           >
             <option value="">-- Unassigned --</option>
-            {matchingSkillWorkers.length > 0 && (
-              <optgroup label="Nearby Workers (Matching Skill)">
-                {matchingSkillWorkers.map(w => {
-                  const wLoc = [w.profiles?.city, w.profiles?.district].filter(Boolean).join(', ')
-                  return (
-                    <option key={w.id} value={w.id}>
-                      👷 {w.profiles?.name || w.phone} {wLoc ? `(${wLoc})` : ''}
-                    </option>
-                  )
-                })}
-              </optgroup>
-            )}
-            {otherSkillWorkers.length > 0 && (
-              <optgroup label="Nearby Workers (Other Skills)">
-                {otherSkillWorkers.map(w => {
-                  const wLoc = [w.profiles?.city, w.profiles?.district].filter(Boolean).join(', ')
-                  const wSkills = (w as any).worker_skills?.map((ws: any) => skills.find(s => s.id === ws.skill_id)?.name).filter(Boolean).join(', ') || 'No Skills'
-                  return (
-                    <option key={w.id} value={w.id}>
-                      👷 {w.profiles?.name || w.phone} - {wSkills} {wLoc ? `(${wLoc})` : ''}
-                    </option>
-                  )
-                })}
-              </optgroup>
-            )}
+            {regionalWorkers
+              .filter(w => (w as any).worker_skills?.some((ws: any) => ws.skill_id === jobSkillId))
+              .map(w => {
+              const wLoc = [w.profiles?.city, w.profiles?.district].filter(Boolean).join(', ')
+              const wSkills = (w as any).worker_skills?.map((ws: any) => skills.find(s => s.id === ws.skill_id)?.name).filter(Boolean).join(', ') || 'No Skills'
+              return (
+                <option key={w.id} value={w.id}>
+                  👷 {w.profiles?.name || w.phone} {wLoc ? `(${wLoc})` : ''} - {wSkills}
+                </option>
+              )
+            })}
           </select>
         )
       }

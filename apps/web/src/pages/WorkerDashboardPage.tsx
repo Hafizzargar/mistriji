@@ -163,7 +163,7 @@ export function WorkerDashboardPage() {
   // ── Guard: Only workers can see this page ──────────────────
   useEffect(() => {
     if (!isLoggedIn || customer?.role !== 'worker') {
-      navigate('/', { replace: true })
+      navigate('/customer/dashboard', { replace: true })
     }
   }, [isLoggedIn, customer?.role, navigate])
 
@@ -498,32 +498,72 @@ export function WorkerDashboardPage() {
   // RENDER
   // ─────────────────────────────────────────────────────────────
   return (
-    <div className="worker-dashboard">
-      {paymentSettings?.workerPaymentsEnabled && (
-        <div style={{ background: 'linear-gradient(to right, #4f46e5, #9333ea)', color: '#fff', padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', fontSize: '0.85rem' }}>
-          <Zap size={16} style={{ flexShrink: 0 }} />
-          <span><b>Earn More with MistriJi!</b> Subscribe to our commission model to receive direct digital payments and secure your bookings.</span>
-        </div>
-      )}
-      
-      {/* ── Hero Header ─────────────────────────────────────── */}
-      <div className="worker-hero">
-        <div className="worker-hero-inner">
-          <div className="worker-hero-top">
-            <div className="worker-hero-info">
-              <div className="worker-avatar">
+    <div style={{ background: '#f8fafc', minHeight: '100vh', paddingBottom: '4rem' }}>
+      <div style={{ maxWidth: '1100px', margin: '0 auto', paddingTop: '2rem', paddingLeft: '1.5rem', paddingRight: '1.5rem' }}>
+        
+        {paymentSettings?.workerPaymentsEnabled && (
+          <div style={{ 
+            background: 'linear-gradient(to right, #4f46e5, #9333ea)', 
+            color: '#fff', 
+            padding: '0.85rem 1.25rem', 
+            borderRadius: '0.75rem',
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '0.75rem', 
+            fontSize: '0.85rem',
+            marginBottom: '1.5rem',
+            boxShadow: '0 4px 12px rgba(147, 51, 234, 0.15)'
+          }}>
+            <Zap size={16} style={{ flexShrink: 0 }} />
+            <span><b>Earn More with MistriJi!</b> Subscribe to our commission model to receive direct digital payments and secure your bookings.</span>
+          </div>
+        )}
+
+        {/* ── Premium Hero Card ─────────────────────────────────────── */}
+        <div style={{
+          background: 'linear-gradient(135deg, #111827 0%, #1e1b4b 50%, #312e81 100%)',
+          borderRadius: '1.25rem',
+          padding: '1.25rem 1.5rem',
+          color: '#ffffff',
+          boxShadow: '0 10px 20px -5px rgba(0, 0, 0, 0.25)',
+          marginBottom: '1.5rem',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '1rem',
+          position: 'relative',
+          overflow: 'hidden'
+        }}>
+          {/* Top Row: Avatar & Actions */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <div style={{
+                width: '48px',
+                height: '48px',
+                borderRadius: '50%',
+                background: '#10b981',
+                color: '#fff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '1.25rem',
+                fontWeight: 800,
+                border: '2px solid rgba(255, 255, 255, 0.2)',
+                boxShadow: '0 2px 5px rgba(0,0,0,0.3)',
+                textTransform: 'uppercase'
+              }}>
                 {customer?.name?.[0] || 'W'}
               </div>
               <div>
-                <div className="worker-hero-name">{customer?.name || 'Worker'}</div>
-                <div className="worker-hero-role">
-                  <HardHat size={12} /> Verified Mistri Partner
+                <h1 style={{ fontSize: '1.15rem', fontWeight: 800, margin: 0, letterSpacing: '-0.01em', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>
+                  {customer?.name || 'Worker'}
+                </h1>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#6ee7b7', fontSize: '0.75rem', fontWeight: 700, marginTop: '0.35rem', background: 'rgba(5, 150, 105, 0.2)', padding: '0.2rem 0.6rem', borderRadius: '999px', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+                  <HardHat size={12} /> VERIFIED PARTNER
                 </div>
               </div>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
-              {/* Help & Support Button */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
               <button
                 type="button"
                 onClick={() => setIsSupportOpen(true)}
@@ -531,71 +571,135 @@ export function WorkerDashboardPage() {
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '0.4rem',
-                  background: 'rgba(255,255,255,0.15)',
-                  border: '1px solid rgba(255,255,255,0.25)',
+                  background: 'rgba(255,255,255,0.1)',
+                  border: '1px solid rgba(255,255,255,0.2)',
                   color: '#ffffff',
-                  padding: '0.45rem 0.75rem',
+                  padding: '0.5rem 1rem',
                   borderRadius: '0.5rem',
-                  fontSize: '0.75rem',
+                  fontSize: '0.8rem',
                   fontWeight: 700,
                   cursor: 'pointer',
                   backdropFilter: 'blur(4px)',
                   transition: 'all 0.15s ease',
                 }}
-                title="Open Helpdesk & Raise Support Tickets"
+                onMouseOver={e => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}
+                onMouseOut={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
               >
                 <LifeBuoy size={14} /> Helpdesk / Tickets
               </button>
 
-              {/* Availability Toggle */}
-              <div className="availability-toggle" onClick={handleToggleAvailability}>
-                <span className={`availability-toggle-label ${isAvailable ? 'on' : 'off'}`}>
+              <div 
+                className="availability-toggle" 
+                onClick={handleToggleAvailability}
+                style={{
+                  background: isAvailable ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255, 255, 255, 0.1)',
+                  border: `1px solid ${isAvailable ? 'rgba(16, 185, 129, 0.4)' : 'rgba(255, 255, 255, 0.2)'}`,
+                  padding: '0.35rem 0.5rem 0.35rem 1rem',
+                  borderRadius: '999px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.75rem',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease'
+                }}
+              >
+                <span style={{ fontSize: '0.75rem', fontWeight: 800, color: isAvailable ? '#6ee7b7' : '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                   {isAvailable ? 'On Duty' : 'Off Duty'}
                 </span>
-                <div className={`toggle-track ${isAvailable ? 'on' : 'off'}`}>
-                  <div className={`toggle-thumb ${isAvailable ? 'on' : 'off'}`} />
+                <div style={{
+                  width: '36px', height: '20px', borderRadius: '20px', background: isAvailable ? '#10b981' : '#4b5563', position: 'relative', transition: 'all 0.3s'
+                }}>
+                  <div style={{
+                    position: 'absolute', top: '2px', left: isAvailable ? '18px' : '2px', width: '16px', height: '16px', borderRadius: '50%', background: '#fff', transition: 'all 0.3s', boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                  }} />
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Stats */}
-          <div className="worker-stats-grid">
-            <div className="worker-stat-card">
-              <div className="worker-stat-value">{incomingJobs.length}</div>
-              <div className="worker-stat-label">New Requests</div>
+          {/* Stats Grid */}
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', 
+            gap: '0.75rem' 
+          }}>
+            <div style={{ background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', padding: '0.75rem', borderRadius: '0.5rem', textAlign: 'center' }}>
+              <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#fff', lineHeight: 1 }}>{incomingJobs.length}</div>
+              <div style={{ fontSize: '0.6rem', fontWeight: 700, color: '#9ca3af', marginTop: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>New Requests</div>
             </div>
-            <div className="worker-stat-card">
-              <div className="worker-stat-value">{totalCompleted}</div>
-              <div className="worker-stat-label">Jobs Done</div>
+            <div style={{ background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', padding: '0.75rem', borderRadius: '0.5rem', textAlign: 'center' }}>
+              <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#fff', lineHeight: 1 }}>{totalCompleted}</div>
+              <div style={{ fontSize: '0.6rem', fontWeight: 700, color: '#9ca3af', marginTop: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Jobs Done</div>
             </div>
-            <div className="worker-stat-card">
-              <div className="worker-stat-value">
+            <div style={{ background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', padding: '0.75rem', borderRadius: '0.5rem', textAlign: 'center' }}>
+              <div style={{ fontSize: '1.5rem', fontWeight: 800, color: avgRating ? '#fbbf24' : '#fff', lineHeight: 1 }}>
                 {avgRating ? `${avgRating}★` : '—'}
               </div>
-              <div className="worker-stat-label">Avg Rating</div>
+              <div style={{ fontSize: '0.6rem', fontWeight: 700, color: '#9ca3af', marginTop: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Avg Rating</div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* ── Tab Bar ──────────────────────────────────────────── */}
-      <div className="worker-tabs">
-        <button className={`worker-tab ${tab === 'incoming' ? 'active' : ''}`} onClick={() => setTab('incoming')}>
-          <Inbox size={14} />
-          <span>Incoming</span>
-          {incomingJobs.length > 0 && <span className="worker-tab-badge">{incomingJobs.length}</span>}
-        </button>
-        <button className={`worker-tab ${tab === 'active' ? 'active' : ''}`} onClick={() => setTab('active')}>
-          <Briefcase size={14} />
-          <span>Active</span>
-          {activeJobs.length > 0 && <span className="worker-tab-badge">{activeJobs.length}</span>}
-        </button>
-        <button className={`worker-tab ${tab === 'history' ? 'active' : ''}`} onClick={() => setTab('history')}>
-          <History size={14} />
-          <span>History</span>
-        </button>
-      </div>
+        {/* ── Premium Tab Bar ──────────────────────────────────────────── */}
+        <div style={{ 
+          display: 'flex', 
+          background: '#ffffff', 
+          borderRadius: '1rem', 
+          padding: '0.5rem', 
+          boxShadow: '0 4px 15px rgba(0,0,0,0.05)',
+          marginBottom: '2rem',
+          border: '1px solid rgba(226, 232, 240, 0.8)',
+          gap: '0.5rem',
+          overflowX: 'auto'
+        }}>
+          {[
+            { id: 'incoming', label: 'Incoming', icon: Inbox, count: incomingJobs.length },
+            { id: 'active', label: 'Active', icon: Briefcase, count: activeJobs.length },
+            { id: 'history', label: 'History', icon: History, count: 0 }
+          ].map(t => {
+            const isActive = tab === t.id
+            const Icon = t.icon
+            return (
+              <button
+                key={t.id}
+                onClick={() => setTab(t.id as any)}
+                style={{
+                  flex: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.5rem',
+                  padding: '0.875rem 1rem',
+                  borderRadius: '0.75rem',
+                  background: isActive ? '#f8fafc' : 'transparent',
+                  color: isActive ? '#4f46e5' : '#64748b',
+                  fontWeight: isActive ? 800 : 600,
+                  fontSize: '0.9rem',
+                  border: isActive ? '1px solid #e2e8f0' : '1px solid transparent',
+                  boxShadow: isActive ? '0 2px 4px rgba(0,0,0,0.02)' : 'none',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                <Icon size={16} style={{ color: isActive ? '#4f46e5' : '#94a3b8' }} />
+                <span>{t.label}</span>
+                {t.count > 0 && (
+                  <span style={{ 
+                    background: isActive ? '#4f46e5' : '#e2e8f0',
+                    color: isActive ? '#ffffff' : '#475569',
+                    padding: '0.15rem 0.5rem',
+                    borderRadius: '999px',
+                    fontSize: '0.75rem',
+                    fontWeight: 800
+                  }}>
+                    {t.count}
+                  </span>
+                )}
+              </button>
+            )
+          })}
+        </div>
 
       {/* ── Content ──────────────────────────────────────────── */}
       <div className="worker-content">
@@ -938,6 +1042,7 @@ export function WorkerDashboardPage() {
         onClose={() => setIsSupportOpen(false)}
         forcedRole="worker"
       />
+      </div>
     </div>
   )
 }

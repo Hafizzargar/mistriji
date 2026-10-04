@@ -27,6 +27,16 @@ export function LoginPage() {
   const [email, setEmail]           = useState('')
   const [pin, setPin]               = useState('')
   const [otp, setOtp]               = useState(['', '', '', '', '', ''])
+  const [resendCountdown, setResendCountdown] = useState(0)
+
+  // Countdown Timer
+  React.useEffect(() => {
+    let timer: ReturnType<typeof setInterval>
+    if (step === 'otp' && resendCountdown > 0) {
+      timer = setInterval(() => setResendCountdown(p => p - 1), 1000)
+    }
+    return () => clearInterval(timer)
+  }, [step, resendCountdown])
 
   // Reset PIN state
   const [resetPinMode, setResetPinMode]         = useState(false)
@@ -98,7 +108,17 @@ export function LoginPage() {
       return
     }
 
-    toast.success(`OTP sent to ${authMethod === 'phone' ? '+91 ' + identifier : identifier}!`)
+    if (result.reused) {
+      toast.success('An OTP was already sent recently. Please check your inbox and use that one.')
+    } else {
+      toast.success(`OTP sent to ${authMethod === 'phone' ? '+91 ' + identifier : identifier}!`)
+    }
+    if (result.expiresAt) {
+      const secondsLeft = Math.floor((result.expiresAt - Date.now()) / 1000)
+      setResendCountdown(Math.max(0, secondsLeft))
+    } else {
+      setResendCountdown(60) // Fallback 1 minute
+    }
     setStep('otp')
     setLoading(false)
   }
@@ -340,6 +360,13 @@ export function LoginPage() {
             >
               {loading ? <><span className="spinner" style={{ width: 16, height: 16 }} /> Verifying…</> : 'Verify OTP →'}
             </button>
+            <div style={{ marginTop: '0.75rem', textAlign: 'center', fontSize: '0.85rem' }}>
+              {resendCountdown > 0 ? (
+                <span>OTP expires in <strong style={{ color: '#4f46e5' }}>{Math.floor(resendCountdown / 60).toString().padStart(2, '0')}:{(resendCountdown % 60).toString().padStart(2, '0')}</strong></span>
+              ) : (
+                <span>Didn't receive code? <button type="button" onClick={handleSendOtp} style={{ background: 'none', border: 'none', color: '#4f46e5', fontWeight: 600, cursor: 'pointer', padding: 0 }}>Resend OTP</button></span>
+              )}
+            </div>
             <button type="button" className="btn btn-ghost btn-full" onClick={() => { setStep('phone'); setError('') }} style={{ marginTop: '0.5rem', background: 'transparent', border: 'none', color: '#6b7280', cursor: 'pointer', padding: '0.5rem' }}>
               ← Change {authMethod === 'phone' ? 'number' : 'email'}
             </button>

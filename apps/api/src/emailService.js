@@ -39,6 +39,9 @@ async function sendEmailOTP(toEmail, otp) {
     </div>
   `
 
+  const timeStr = new Date().toLocaleTimeString()
+  console.log(`[${timeStr}] 🔑 [DEV] Local OTP for ${toEmail} | Code: [${otp}]`)
+
   try {
     const res = await fetch(BREVO_API_URL, {
       method: 'POST',
@@ -62,7 +65,8 @@ async function sendEmailOTP(toEmail, otp) {
       return { success: false, error: 'Brevo API Error: ' + (data.message || 'Unknown error') }
     }
 
-    console.log(`📧 OTP email sent via Brevo to ${toEmail} | Code: [${otp}]`)
+    const timeStr = new Date().toLocaleTimeString()
+    console.log(`[${timeStr}] 📧 OTP email sent via Brevo to ${toEmail} | Code: [${otp}]`)
     return { success: true }
   } catch (err) {
     console.error('Email send error:', err.message)

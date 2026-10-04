@@ -98,18 +98,46 @@ export function JobDetailsPage() {
   async function handleServiceChange(newSkillId: string) {
     if (!job) return
     const newSkill = skills.find(s => s.id === newSkillId)
-    const { error } = await supabase.from('jobs').update({ skill_id: newSkillId }).eq('id', job.id)
+    
+    let targetWorkerId = job.worker_id
+    let newStatus = job.status
+    let unassigned = false
+
+    if (targetWorkerId) {
+      const assignedW = workers.find(w => w.id === targetWorkerId)
+      const hasNewSkill = assignedW?.worker_skills?.some((ws: any) => ws.skill_id === newSkillId)
+      
+      if (!hasNewSkill) {
+        targetWorkerId = null
+        unassigned = true
+        if (['accepted', 'on_way', 'arrived', 'working'].includes(job.status)) {
+          newStatus = 'pending_dispatch'
+        }
+      }
+    }
+
+    const updates: any = { skill_id: newSkillId }
+    if (unassigned) {
+      updates.worker_id = null
+      updates.status = newStatus
+    }
+
+    const { error } = await supabase.from('jobs').update(updates).eq('id', job.id)
     if (error) {
       toast.error(error.message)
     } else {
-      toast.success(`Service changed to ${newSkill?.name}`)
-      setJob({ ...job, skill_id: newSkillId, skills: newSkill })
+      if (unassigned) {
+        toast.success(`Service changed to ${newSkill?.name} and previous worker was unassigned because they lacked the skill.`)
+      } else {
+        toast.success(`Service changed to ${newSkill?.name}`)
+      }
+      setJob({ ...job, skill_id: newSkillId, skills: newSkill, worker_id: targetWorkerId, status: newStatus })
       await logAdminAction({
         actor: currentAdmin,
         action: 'Job Service Updated',
         targetType: 'job',
         targetId: job.id,
-        details: `updated service of job to "${newSkill?.name}"`,
+        details: `updated service of job to "${newSkill?.name}"${unassigned ? ' (worker unassigned)' : ''}`,
         oldValue: job.skill_id,
         newValue: newSkillId
       })
@@ -182,23 +210,38 @@ export function JobDetailsPage() {
   const custCity = custProfiles?.city?.toLowerCase() || ''
 
   let targetDist = custDist
-  const ALL_DISTRICTS = ['jammu', 'samba', 'kathua', 'udhampur', 'reasi', 'rajouri', 'poonch', 'doda', 'ramban', 'kishtwar']
-  for (const d of ALL_DISTRICTS) {
-    if (jobArea.includes(d)) {
-      targetDist = d
-      break
+  const mappedDist = JAMMU_AREAS[jobArea]?.district?.toLowerCase()
+  if (mappedDist) {
+    targetDist = mappedDist
+  } else {
+    const ALL_DISTRICTS = ['jammu', 'samba', 'kathua', 'udhampur', 'reasi', 'rajouri', 'poonch', 'doda', 'ramban', 'kishtwar']
+    for (const d of ALL_DISTRICTS) {
+      if (jobArea.includes(d)) {
+        targetDist = d
+        break
+      }
     }
   }
 
   let regionalWorkers = workers.filter(w => {
     const p = w.profiles
     if (!p) return false
-    const wArea = p.area?.toLowerCase() || ''
+    const wAreaRaw = p.area || ''
+    const wArea = wAreaRaw.toLowerCase()
     const wDist = p.district?.toLowerCase() || ''
     const wCity = p.city?.toLowerCase() || ''
 
-    if (targetDist && wDist && wDist !== targetDist && !wDist.includes(targetDist) && !targetDist.includes(wDist)) {
-      return false
+    // Strict District Isolation: worker MUST be from the target district
+    if (targetDist) {
+      let inferredWorkerDist = wDist
+      if (!inferredWorkerDist && wAreaRaw) {
+        inferredWorkerDist = JAMMU_AREAS[wAreaRaw]?.district?.toLowerCase() || ''
+      }
+      const knownLocs = [wDist, inferredWorkerDist, wCity, wArea].filter(Boolean)
+      if (knownLocs.length > 0) {
+        const hasMatch = knownLocs.some(loc => loc === targetDist || loc.includes(targetDist) || targetDist.includes(loc))
+        if (!hasMatch) return false // STRICT ISOLATION
+      }
     }
 
     const distMatch = (wDist && custDist && (wDist === custDist || wDist.includes(custDist) || custDist.includes(wDist))) || false
@@ -218,9 +261,6 @@ export function JobDetailsPage() {
   if (assignedWorker && !regionalWorkers.find(w => w.id === assignedWorker.id)) {
     regionalWorkers = [assignedWorker, ...regionalWorkers]
   }
-
-  const matchingSkillWorkers = regionalWorkers.filter(w => w.worker_skills?.some((ws: any) => ws.skill_id === job.skill_id))
-  const otherSkillWorkers = regionalWorkers.filter(w => !matchingSkillWorkers.find(mw => mw.id === w.id))
 
   const areaName = job.area || ''
   const district = JAMMU_AREAS[areaName]?.district || job.customer?.profiles?.district || ''
@@ -562,15 +602,14 @@ export function JobDetailsPage() {
                           });
                         };
 
-                        const filteredMatching = filterWorkers(matchingSkillWorkers);
-                        const filteredOther = filterWorkers(otherSkillWorkers);
+                        // Only show workers who have the selected skill
+                        const filteredWorkers = filterWorkers(regionalWorkers).filter(w => w.worker_skills?.some((ws: any) => ws.skill_id === job.skill_id));
 
                         return (
                           <React.Fragment>
-                            {filteredMatching.length > 0 && (
+                            {filteredWorkers.length > 0 && (
                               <div style={{ marginTop: '0.25rem' }}>
-                                <div style={{ fontSize: '0.65rem', fontWeight: 700, color: '#94a3b8', padding: '0.25rem 0.5rem', textTransform: 'uppercase' }}>Matching Skill</div>
-                                {filteredMatching.map(w => {
+                                {filteredWorkers.map(w => {
                                   const wLoc = [w.profiles?.city, w.profiles?.district].filter(Boolean).join(', ')
                                   return (
                                     <div
@@ -584,25 +623,6 @@ export function JobDetailsPage() {
                                     </div>
                                   )
                                 })}
-                              </div>
-                            )}
-
-                            {filteredOther.length > 0 && (
-                              <div style={{ marginTop: '0.5rem' }}>
-                                <div style={{ fontSize: '0.65rem', fontWeight: 700, color: '#94a3b8', padding: '0.25rem 0.5rem', textTransform: 'uppercase' }}>Other Skills</div>
-                                {filteredOther.map(w => {
-                                  const wLoc = [w.profiles?.city, w.profiles?.district].filter(Boolean).join(', ')
-                                  return (
-                                  <div
-                                    key={w.id}
-                                    onClick={() => { handleAssignWorker(w.id); setWorkerDropdownOpen(false); setWorkerSearch(''); }}
-                                    style={{ padding: '0.5rem', cursor: 'pointer', borderRadius: '0.25rem', fontSize: '0.85rem', color: '#0f172a', fontWeight: 500, background: job.worker_id === w.id ? '#eef2ff' : 'transparent' }}
-                                    onMouseOver={e => e.currentTarget.style.background = job.worker_id === w.id ? '#eef2ff' : '#f8fafc'}
-                                    onMouseOut={e => e.currentTarget.style.background = job.worker_id === w.id ? '#eef2ff' : 'transparent'}
-                                  >
-                                    👷 {w.profiles?.name || w.phone} {wLoc && <span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 400 }}>({wLoc})</span>}
-                                  </div>
-                                )})}
                               </div>
                             )}
                           </React.Fragment>

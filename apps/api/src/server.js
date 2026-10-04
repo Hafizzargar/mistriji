@@ -15,7 +15,7 @@ const express = require('express')
 const cors = require('cors')
 const jwt = require('jsonwebtoken')
 const cookieParser = require('cookie-parser')
-const { setOTP, verifyOTP, deleteOTP } = require('./otpStore')
+const { setOTP, verifyOTP, deleteOTP, consumeOTP } = require('./otpStore')
 const { sendEmailOTP, sendEmailNotification, sendAdminWelcomeEmail } = require('./emailService')
 const { sendSmsOTP, sendSmsNotification } = require('./smsService')
 const { logError } = require('./errorMonitor')
@@ -120,6 +120,43 @@ async function isSuperAdminOrAdmin(identifier, req = null, returnFullUser = fals
   }
   return returnFullUser ? null : false
 }
+
+// ─── Blocked Account Status Check ─────────────────────────
+const BLOCKED_ACCOUNT_STATUSES = new Set(['suspended', 'disabled', 'deactivated'])
+
+async function getAccountStatus(identifier) {
+  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_KEY) return null
+  
+  const cleanId = String(identifier).trim().toLowerCase()
+  const cleanPhone = String(identifier).replace(/\D/g, '').slice(-10)
+  
+  let filter = ''
+  if (cleanId.includes('@')) {
+    filter = `email=ilike.${encodeURIComponent(cleanId)}`
+  } else if (cleanPhone.length === 10) {
+    filter = `or=(phone.eq.${cleanPhone},phone.eq.+91${cleanPhone},phone.ilike.*${cleanPhone}*)`
+  } else {
+    return null
+  }
+
+  try {
+    const url = `${process.env.SUPABASE_URL}/rest/v1/users?select=id,role,status&${filter}&limit=1`
+    const response = await fetch(url, {
+      headers: {
+        'apikey': process.env.SUPABASE_KEY,
+        'Authorization': `Bearer ${process.env.SUPABASE_KEY}`
+      }
+    })
+    if (!response.ok) return null
+    const users = await response.json()
+    if (Array.isArray(users) && users.length > 0) return users[0]
+    return null
+  } catch (e) {
+    console.error('Account status check error:', e)
+    return null
+  }
+}
+
 
 function checkOtpRateLimits(ip, identifier, isAdmin = false) {
   if (isAdmin) return null // Super Admins and Admins can log in multiple times without limits
@@ -241,6 +278,21 @@ app.post('/api/otp/send', otpRateLimitMiddleware, async (req, res) => {
     })
   }
 
+  // ── SECURITY GATE: Block suspended/disabled/deactivated accounts ──
+  // Super Admin is always exempt from this check
+  if (!isAdmin && !isAdminPortal) {
+    const accountUser = await getAccountStatus(identifier)
+    const isSuperAdmin = accountUser?.role === 'super_admin'
+    if (!isSuperAdmin && accountUser && BLOCKED_ACCOUNT_STATUSES.has((accountUser.status || '').toLowerCase())) {
+      console.log(`   ⛔ OTP BLOCKED — Account suspended: ${identifier} (status=${accountUser.status})`)
+      return res.status(403).json({
+        success: false,
+        code: 'ACCOUNT_SUSPENDED',
+        error: 'Your account has been suspended or deactivated by administration. Please contact support.'
+      })
+    }
+  }
+
   if (type === 'email') {
     // Basic email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -249,17 +301,23 @@ app.post('/api/otp/send', otpRateLimitMiddleware, async (req, res) => {
     }
 
     // Generate our own OTP for email (managed via otpStore)
-    const { code, error: otpError } = setOTP(identifier, { isAdmin })
+    const { code, error: otpError, reused, expiresAt } = setOTP(identifier, { isAdmin })
     if (otpError) {
       return res.status(429).json({ error: otpError })
     }
+
+    const masked = identifier.replace(/(.{2}).+(@.+)/, '$1***$2')
+    
+    if (reused) {
+      return res.json({ success: true, reused: true, message: 'OTP already sent.', expiresAt })
+    }
+
     const result = await sendEmailOTP(identifier, code)
     if (!result.success) {
       return res.status(500).json({ error: result.error })
     }
 
-    const masked = identifier.replace(/(.{2}).+(@.+)/, '$1***$2')
-    return res.json({ success: true, message: `OTP sent to ${masked}`, expiresIn: 300 })
+    return res.json({ success: true, reused: false, message: `OTP sent to ${masked}`, expiresAt })
 
   } else if (type === 'phone') {
     const cleanPhone = identifier.replace(/\D/g, '').slice(-10)
@@ -268,9 +326,18 @@ app.post('/api/otp/send', otpRateLimitMiddleware, async (req, res) => {
     }
 
     // Generate our own OTP for SMS (managed via otpStore)
-    const { code, error: otpError } = setOTP(identifier, { isAdmin })
+    const { code, error: otpError, reused, expiresAt } = setOTP(identifier, { isAdmin })
     if (otpError) {
       return res.status(429).json({ error: otpError })
+    }
+
+    if (reused) {
+      return res.json({
+        success: true,
+        reused: true,
+        message: 'OTP already sent.',
+        expiresAt,
+      })
     }
 
     const result = await sendSmsOTP(cleanPhone, code)
@@ -280,8 +347,9 @@ app.post('/api/otp/send', otpRateLimitMiddleware, async (req, res) => {
 
     return res.json({
       success: true,
+      reused: false,
       message: `OTP sent to ******${cleanPhone.slice(-4)}`,
-      expiresIn: 300,
+      expiresAt,
     })
 
   } else {
@@ -312,6 +380,21 @@ app.post('/api/otp/verify', otpRateLimitMiddleware, async (req, res) => {
   if (!valid) {
     console.log(`   ❌ OTP invalid: ${error}`)
     return res.status(401).json({ error })
+  }
+
+  // ── SECURITY GATE: Block suspended/disabled/deactivated accounts at verify ──
+  // Super Admin is always exempt from this check
+  if (!isAdminPortal) {
+    const accountUser = await getAccountStatus(identifier)
+    const isSuperAdmin = accountUser?.role === 'super_admin'
+    if (!isSuperAdmin && accountUser && BLOCKED_ACCOUNT_STATUSES.has((accountUser.status || '').toLowerCase())) {
+      console.log(`   ⛔ OTP VERIFY BLOCKED — Account suspended: ${identifier} (status=${accountUser.status})`)
+      return res.status(403).json({
+        success: false,
+        code: 'ACCOUNT_SUSPENDED',
+        error: 'Your account has been suspended or deactivated by administration. Please contact support.'
+      })
+    }
   }
 
   console.log('   ✅ OTP verified OK')
@@ -373,8 +456,10 @@ app.post('/api/otp/verify-pin', otpRateLimitMiddleware, async (req, res) => {
       return res.status(500).json({ error: 'Server misconfiguration.' })
     }
 
-    // Login successful, clean up OTP
-    deleteOTP(identifier)
+    // Login successful, atomically consume the OTP
+    if (!consumeOTP(identifier, code)) {
+      return res.status(401).json({ error: 'OTP has already been used or expired.' })
+    }
 
     // Sign 15-minute Access JWT
     const accessToken = jwt.sign(
@@ -387,11 +472,11 @@ app.post('/api/otp/verify-pin', otpRateLimitMiddleware, async (req, res) => {
       { expiresIn: '15m', audience: 'authenticated' }
     )
 
-    // Sign 7-day Refresh Token
+    // Sign 1-hour Refresh Token (absolute session limit)
     const refreshToken = jwt.sign(
       { sub: adminUser.id, identifier },
       process.env.SUPABASE_JWT_SECRET,
-      { expiresIn: '7d' }
+      { expiresIn: '1h' }
     )
 
     // Set HttpOnly, Secure cookie
@@ -400,7 +485,7 @@ app.post('/api/otp/verify-pin', otpRateLimitMiddleware, async (req, res) => {
       secure: true, // must be true for sameSite: 'none'
       sameSite: 'none',
       path: '/api/otp/refresh',
-      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+      maxAge: 60 * 60 * 1000 // 1 hour absolute limit
     })
 
     return res.json({ 
@@ -703,6 +788,49 @@ app.post('/api/errors/log', async (req, res) => {
     appVersion
   })
   res.json({ success: true })
+})
+
+// ─── Admin Session Revocation ─────────────────────────────
+app.post('/api/admin/revoke-session', async (req, res) => {
+  const { userId } = req.body
+  if (!userId) return res.status(400).json({ error: 'Missing userId' })
+
+  if (process.env.SUPABASE_URL && process.env.SUPABASE_KEY) {
+    try {
+      // First, check the user's role to prevent suspending a super_admin
+      const userRes = await fetch(`${process.env.SUPABASE_URL}/rest/v1/users?select=role&id=eq.${userId}`, {
+        headers: {
+          'apikey': process.env.SUPABASE_KEY,
+          'Authorization': `Bearer ${process.env.SUPABASE_KEY}`
+        }
+      })
+      
+      if (userRes.ok) {
+        const users = await userRes.json()
+        if (users && users.length > 0 && users[0].role === 'super_admin') {
+          return res.status(403).json({ error: 'Cannot revoke session or suspend a super_admin account.' })
+        }
+      }
+
+      // Deletes all sessions for the user using Supabase Admin Auth API (global signOut)
+      const url = `${process.env.SUPABASE_URL}/auth/v1/admin/users/${userId}/sessions`
+      const deleteRes = await fetch(url, {
+        method: 'DELETE',
+        headers: {
+          'apikey': process.env.SUPABASE_KEY,
+          'Authorization': `Bearer ${process.env.SUPABASE_KEY}`,
+          'Content-Type': 'application/json'
+        }
+      })
+      if (!deleteRes.ok) {
+        console.error('Revoke session failed:', await deleteRes.text())
+      }
+      return res.json({ success: true })
+    } catch (err) {
+      return res.status(500).json({ error: err.message })
+    }
+  }
+  return res.status(500).json({ error: 'Supabase configuration missing' })
 })
 
 // ─── Global Error Handler ─────────────────────────────────

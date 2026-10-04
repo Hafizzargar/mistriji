@@ -85,6 +85,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!user) return
 
+    // --- Inactivity Timeout Logic (15 minutes) ---
+    let timeoutId: ReturnType<typeof setTimeout>
+    let warningTimeoutId: ReturnType<typeof setTimeout>
+
+    const handleInactivityLogout = () => {
+      console.warn('Admin logged out due to inactivity.')
+      purgeSession('inactivity_timeout')
+    }
+
+    const handleInactivityWarning = () => {
+      console.warn('Admin session will expire in 2 minutes due to inactivity.')
+      // Dispatch a custom event in case a global listener (like Toast) wants to show it
+      window.dispatchEvent(new CustomEvent('auth-warning', { 
+        detail: 'You will be logged out in 2 minutes due to inactivity. Move your mouse or type to stay logged in.' 
+      }))
+    }
+
+    const resetTimers = () => {
+      clearTimeout(timeoutId)
+      clearTimeout(warningTimeoutId)
+      // 15 mins total (900000ms), warn at 13 mins (780000ms)
+      timeoutId = setTimeout(handleInactivityLogout, 900000)
+      warningTimeoutId = setTimeout(handleInactivityWarning, 780000)
+    }
+
+    const activityEvents = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart']
+    activityEvents.forEach(e => document.addEventListener(e, resetTimers, { capture: true, passive: true }))
+    
+    // Initial start
+    resetTimers()
+
     // Realtime postgres changes channel on 'users' table
     const channel = supabase
       .channel('admin-auth-live-guard')
@@ -114,6 +145,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .subscribe()
 
     return () => {
+      activityEvents.forEach(e => document.removeEventListener(e, resetTimers, { capture: true }))
+      clearTimeout(timeoutId)
+      clearTimeout(warningTimeoutId)
       supabase.removeChannel(channel)
     }
   }, [user])

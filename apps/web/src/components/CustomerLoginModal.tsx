@@ -1,67 +1,91 @@
 import React, { useState, useEffect, useRef } from 'react'
+import { X, User, Shield, Zap, CalendarClock, Phone as PhoneIcon, CheckCircle, Ban, Check } from 'lucide-react'
+import { supabase } from '@/lib/supabase'
 import { useCustomerAuth, CheckUserStatusResult } from '@/contexts/CustomerAuthContext'
-import { useToast } from '@/contexts/ToastContext'
 import { sendOTP, verifyOTP as verifyOTPApi } from '@/lib/authApi'
-import { X, Phone, User, LogIn, UserPlus, Ban, KeyRound, ArrowLeft, ShieldCheck, HardHat, CheckCircle, Sparkles, Mail } from 'lucide-react'
+import { useToast } from '@/contexts/ToastContext'
 
-// ── OTP Box Component ─────────────────────────────────────
-function OtpBoxes({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const refs = Array.from({ length: 6 }, () => useRef<HTMLInputElement>(null))
+// ── One-Time Password Input ───────────────────────────────
+function OtpInput({ value, onChange, onComplete, disabled }: { value: string, onChange: (val: string) => void, onComplete: () => void, disabled?: boolean }) {
+  const inputRefs = useRef<(HTMLInputElement | null)[]>([])
 
-  function handleKey(i: number, e: React.KeyboardEvent<HTMLInputElement>) {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
+    const val = e.target.value.replace(/\D/g, '')
+    if (!val) return
+    const char = val[val.length - 1]
+    const newVal = value.split('')
+    newVal[index] = char
+    const finalVal = newVal.join('').slice(0, 6)
+    onChange(finalVal)
+    if (index < 5 && char) {
+      inputRefs.current[index + 1]?.focus()
+    }
+    if (finalVal.length === 6) {
+      setTimeout(onComplete, 50)
+    }
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, index: number) => {
     if (e.key === 'Backspace') {
-      if (value[i]) {
-        const next = value.slice(0, i) + '' + value.slice(i + 1)
-        onChange(next)
-      } else if (i > 0) {
-        refs[i - 1].current?.focus()
-        const next = value.slice(0, i - 1) + '' + value.slice(i)
-        onChange(next)
+      e.preventDefault()
+      const newVal = value.split('')
+      if (newVal[index]) {
+        newVal[index] = ''
+        onChange(newVal.join(''))
+      } else if (index > 0) {
+        newVal[index - 1] = ''
+        onChange(newVal.join(''))
+        inputRefs.current[index - 1]?.focus()
+      }
+    } else if (e.key === 'ArrowLeft' && index > 0) {
+      inputRefs.current[index - 1]?.focus()
+    } else if (e.key === 'ArrowRight' && index < 5) {
+      inputRefs.current[index + 1]?.focus()
+    }
+  }
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    e.preventDefault()
+    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6)
+    if (pasted) {
+      onChange(pasted)
+      if (pasted.length === 6) {
+        inputRefs.current[5]?.focus()
+        setTimeout(onComplete, 50)
+      } else {
+        inputRefs.current[pasted.length]?.focus()
       }
     }
   }
 
-  function handleChange(i: number, e: React.ChangeEvent<HTMLInputElement>) {
-    const digit = e.target.value.replace(/\D/g, '').slice(-1)
-    const next = value.slice(0, i) + digit + value.slice(i + 1)
-    onChange(next.slice(0, 6))
-    if (digit && i < 5) refs[i + 1].current?.focus()
-  }
-
-  function handlePaste(e: React.ClipboardEvent) {
-    e.preventDefault()
-    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6)
-    onChange(pasted.padEnd(6, '').slice(0, 6))
-    if (pasted.length > 0) refs[Math.min(pasted.length, 5)].current?.focus()
-  }
-
   return (
-    <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
-      {Array.from({ length: 6 }, (_, i) => (
+    <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
+      {[0, 1, 2, 3, 4, 5].map((i) => (
         <input
           key={i}
-          ref={refs[i]}
+          ref={el => inputRefs.current[i] = el}
           type="text"
           inputMode="numeric"
           maxLength={1}
           value={value[i] || ''}
-          onKeyDown={e => handleKey(i, e)}
-          onChange={e => handleChange(i, e)}
+          onChange={e => handleChange(e, i)}
+          onKeyDown={e => handleKeyDown(e, i)}
           onPaste={i === 0 ? handlePaste : undefined}
           autoFocus={i === 0}
+          disabled={disabled}
           style={{
             width: 44,
             height: 52,
             textAlign: 'center',
             fontSize: '1.4rem',
             fontWeight: 800,
-            border: `2px solid ${value[i] ? '#4f46e5' : '#e5e7eb'}`,
+            border: `2px solid ${value[i] ? '#4f46e5' : '#cbd5e1'}`,
             borderRadius: '0.75rem',
             outline: 'none',
-            background: value[i] ? '#eef2ff' : '#f9fafb',
-            color: '#1e1b4b',
+            background: value[i] ? 'rgba(79,70,229,0.05)' : '#f8fafc',
+            color: '#0f172a',
             transition: 'all 0.15s ease',
-            boxShadow: value[i] ? '0 0 0 3px rgba(79,70,229,0.15)' : 'none',
+            boxShadow: value[i] ? '0 0 0 2px rgba(79,70,229,0.2)' : 'none',
           }}
         />
       ))}
@@ -74,29 +98,37 @@ export function CustomerLoginModal() {
   const { showLoginModal, closeLoginModal, login, checkUserStatus } = useCustomerAuth()
   const toast = useToast()
 
-  const [activeTab, setActiveTab] = useState<'login' | 'register'>('login')
-  const [authMethod, setAuthMethod] = useState<'phone' | 'email'>('phone')
-  const [step, setStep] = useState<'phone' | 'otp'>('phone')
-  const [phone, setPhone] = useState('')
-  const [email, setEmail] = useState('')
+  const [step, setStep] = useState<'identifier' | 'otp' | 'register_details'>('identifier')
+  const [identifier, setIdentifier] = useState('')
   const [name, setName] = useState('')
   const [otp, setOtp] = useState('')
+  
   const [loading, setLoading] = useState(false)
   const [sending, setSending] = useState(false)
   const [checking, setChecking] = useState(false)
+  
   const [resendCountdown, setResendCountdown] = useState(60)
   const [userStatus, setUserStatus] = useState<CheckUserStatusResult | null>(null)
-  // Guard: prevent double OTP verify (React 18 StrictMode runs effects twice in dev)
   const verifyingRef = useRef(false)
 
+  // Derived states
+  const authMethod = identifier.includes('@') ? 'email' : 'phone'
+  const isEmail = authMethod === 'email'
+  
+  // Basic validation check
+  const isValidIdentifier = isEmail 
+    ? /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier)
+    : identifier.replace(/\D/g, '').length >= 10
+
+  // Reset state on open/close
   useEffect(() => {
     if (!showLoginModal) {
-      setPhone(''); setEmail(''); setName(''); setOtp(''); setStep('phone')
-      setUserStatus(null); setActiveTab('login'); setAuthMethod('phone')
-      setChecking(false); setLoading(false); setSending(false); setResendCountdown(60)
+      setIdentifier(''); setName(''); setOtp(''); setStep('identifier')
+      setUserStatus(null); setChecking(false); setLoading(false); setSending(false); setResendCountdown(60)
     }
   }, [showLoginModal])
 
+  // Countdown timer for OTP
   useEffect(() => {
     let timer: any
     if (step === 'otp' && resendCountdown > 0) {
@@ -105,6 +137,7 @@ export function CustomerLoginModal() {
     return () => clearInterval(timer)
   }, [step, resendCountdown])
 
+  // Prevent body scroll
   useEffect(() => {
     if (showLoginModal) {
       const scrollY = window.scrollY
@@ -122,25 +155,25 @@ export function CustomerLoginModal() {
     }
   }, [showLoginModal])
 
+  // Auto-detect user status
   useEffect(() => {
-    if (phone.length === 10) {
+    if (isValidIdentifier) {
+      const cleanIdentifier = isEmail ? identifier : identifier.replace(/\D/g, '').slice(-10)
+      
       setChecking(true)
-      checkUserStatus(phone).then(res => {
+      checkUserStatus(cleanIdentifier).then(res => {
         setUserStatus(res)
-        if (res.exists) {
-          if (res.name) setName(res.name)
-          setActiveTab('login')
-        } else if (!res.isSuperAdmin) {
-          setActiveTab('register')
+        if (res.exists && res.name) {
+          setName(res.name)
         }
         setChecking(false)
       })
     } else {
       setUserStatus(null)
     }
-  }, [phone, checkUserStatus])
+  }, [identifier, isValidIdentifier, checkUserStatus])
 
-  // Auto-verify OTP when 6 digits are entered
+  // Auto-verify OTP
   useEffect(() => {
     if (step === 'otp' && otp.length === 6 && !loading && !verifyingRef.current) {
       handleVerifyOtp()
@@ -149,85 +182,90 @@ export function CustomerLoginModal() {
 
   if (!showLoginModal) return null
 
-  function resetAuthFields(newMethod?: 'phone' | 'email') {
-    setPhone('')
-    setEmail('')
-    setOtp('')
-    setUserStatus(null)
-    setStep('phone')
-    if (newMethod) setAuthMethod(newMethod)
-  }
-
   function handleClose() {
-    setPhone(''); setEmail(''); setName(''); setOtp(''); setStep('phone')
-    setUserStatus(null); setActiveTab('login'); setAuthMethod('phone')
-    setChecking(false); setLoading(false); setSending(false)
     closeLoginModal()
   }
 
-  const isRegistering = activeTab === 'register' || (userStatus && !userStatus.exists && !userStatus.isSuperAdmin)
-
-  async function handleSendOtp(e: React.FormEvent) {
-    e.preventDefault()
-    if (userStatus?.isSuperAdmin) { toast.error('This number is associated with a different account type. Please use the correct login portal.'); return }
-    if (authMethod === 'phone' && (!phone || phone.length < 10)) { toast.error('Please enter a valid 10-digit mobile number.'); return }
-    if (authMethod === 'email' && (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) { toast.error('Please enter a valid email address.'); return }
-    if (userStatus?.isSuspended) { toast.error(`⛔ Account Suspended: ${userStatus.suspensionReason || 'Contact support'}`); return }
-    if (isRegistering && !name.trim()) { toast.error('Please enter your full name.'); return }
-
-    setSending(true)
-    const identifier = authMethod === 'phone' ? phone : email
+  async function handleSendOtp(e?: React.FormEvent) {
+    if (e) e.preventDefault()
     
-    // Explicitly check user status to prevent duplicate registration
-    if (activeTab === 'register') {
-      const statusRes = await checkUserStatus(identifier)
-      if (statusRes.exists) {
-        toast.error('An account with this email/phone already exists. Please login instead.')
-        setSending(false)
-        setActiveTab('login')
-        return
-      }
+    if (!isValidIdentifier) { toast.error('Please enter a valid phone number or email.'); return }
+    if (userStatus?.isSuperAdmin) { toast.error('Administrator accounts must log in via the secure Admin Portal.'); return }
+    if (userStatus?.isSuspended) { toast.error(`⛔ Account Suspended: ${userStatus.suspensionReason || 'Contact support'}`); return }
+    if (checking || !userStatus) { toast.error('Please wait, verifying account status...'); return }
+    
+    // If we know they don't exist and we are on the first step, ask for name first
+    if (!userStatus.exists && step === 'identifier') {
+      setStep('register_details')
+      return
     }
 
-    const result = await sendOTP(identifier, authMethod)
+    if (step === 'register_details' && !name.trim()) { toast.error('Please enter your full name.'); return }
+
+    setSending(true)
+    const cleanId = isEmail ? identifier : identifier.replace(/\D/g, '').slice(-10)
+    
+    const result = await sendOTP(cleanId, authMethod)
     setSending(false)
 
     if (!result.success) {
-      toast.error(result.error || 'Error')
+      if (result.isSuspended) {
+        toast.error('⛔ Your account has been suspended. You cannot log in. Contact support.')
+        handleClose()
+        return
+      }
+      toast.error(result.error || 'Failed to send OTP')
       return
     }
 
     setStep('otp')
-    setResendCountdown(60)
-    const masked = authMethod === 'phone' ? `+91 ${phone}` : email.replace(/(.{2}).+(@.+)/, '$1***$2')
-    toast.success(`📲 OTP sent to ${masked}!`)
+    if (result.expiresAt) {
+      const secondsLeft = Math.ceil((result.expiresAt - Date.now()) / 1000)
+      setResendCountdown(Math.max(0, secondsLeft))
+    } else {
+      setResendCountdown(300)
+    }
+
+    if (result.reused) {
+      toast.success('An OTP was already sent recently. Please check your inbox.')
+    } else {
+      const masked = isEmail ? identifier.replace(/(.{2}).+(@.+)/, '$1***$2') : `+91 ${cleanId}`
+      toast.success(`📲 OTP sent to ${masked}!`)
+    }
   }
 
   async function handleVerifyOtp(e?: React.FormEvent) {
     if (e) e.preventDefault()
     if (otp.length < 6) { toast.error('Please enter the 6-digit OTP.'); return }
-    if (verifyingRef.current) return   // already running — skip duplicate call
+    if (verifyingRef.current) return
+    
     verifyingRef.current = true
     setLoading(true)
 
-    const identifier = authMethod === 'phone' ? phone : email
-    const verifyResult = await verifyOTPApi(identifier, otp, authMethod)
-    console.log('[DEBUG] verifyResult:', verifyResult)
+    const cleanId = isEmail ? identifier : identifier.replace(/\D/g, '').slice(-10)
+    const verifyResult = await verifyOTPApi(cleanId, otp, authMethod)
+    
     if (!verifyResult.success) {
       setLoading(false)
       verifyingRef.current = false
-      toast.error(verifyResult.error || 'Error')
+      if (verifyResult.isSuspended) {
+        toast.error('⛔ Your account has been suspended. You cannot log in. Contact support.')
+        handleClose()
+        return
+      }
+      toast.error(verifyResult.error || 'Invalid OTP. Please try again.')
       return
     }
 
     // OTP verified — log the user in
-    const loginPhone = authMethod === 'phone' ? phone : email
-    const loginResult = await login(loginPhone, name)
+    const loginResult = await login(cleanId, name)
     
-    console.log('[DEBUG] loginResult:', loginResult) // Added for debugging
-
+    // Add artificial delay for smoother visual feedback before redirect
+    await new Promise(resolve => setTimeout(resolve, 1200))
+    
     setLoading(false)
     verifyingRef.current = false
+    
     if (!loginResult.ok) {
       toast.error(loginResult.error)
     } else {
@@ -236,44 +274,109 @@ export function CustomerLoginModal() {
     }
   }
 
-  const features = [
-    { icon: '🛡️', text: 'Verified workers only' },
-    { icon: '⚡', text: 'Fast job assignment' },
-    { icon: '📞', text: 'Team coordinates for you' },
-    { icon: '📋', text: 'Track all your requests' },
-  ]
-
   return (
     <>
       <style>{`
-        @keyframes slideUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+        @keyframes slideUp { from { opacity:0; transform:translateY(20px) scale(0.98); } to { opacity:1; transform:translateY(0) scale(1); } }
+        @keyframes pulseSoft { 0% { opacity: 0.8; transform: scale(1); } 50% { opacity: 1; transform: scale(1.05); } 100% { opacity: 0.8; transform: scale(1); } }
+        @keyframes float { 0% { transform: translateY(0px) rotate(0deg); } 50% { transform: translateY(-10px) rotate(5deg); } 100% { transform: translateY(0px) rotate(0deg); } }
         
         .cust-modal-wrapper {
           position: fixed; inset: 0;
-          background: rgba(15, 23, 42, 0.7);
+          background: rgba(15, 23, 42, 0.4);
           backdrop-filter: blur(8px);
           -webkit-backdrop-filter: blur(8px);
           display: flex; align-items: center; justify-content: center;
           z-index: 2500; padding: 1rem;
-          overscroll-behavior: contain;
         }
 
         .cust-modal-box {
           display: flex;
           flex-direction: column;
-          border-radius: 1.25rem;
-          background: #fff;
+          border-radius: 1.5rem;
+          background: #ffffff;
+          color: #0f172a;
           overflow: hidden;
-          max-width: 440px; width: 100%;
-          box-shadow: 0 25px 50px -12px rgba(0,0,0,0.35);
-          animation: slideUp 0.3s cubic-bezier(0.34, 1.2, 0.64, 1);
+          max-width: 420px; width: 100%;
           max-height: 90vh;
+          box-shadow: 0 25px 50px -12px rgba(0,0,0,0.15);
+          animation: slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1);
           position: relative;
+        }
+        
+        .cust-modal-box * {
+          box-sizing: border-box;
+        }
+
+
+
+
+
+        .input-group {
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          border-radius: 0.875rem;
+          display: flex;
+          align-items: center;
+          padding: 0 1.25rem;
+          transition: all 0.2s;
+        }
+        
+        .input-group:focus-within {
+          background: #ffffff;
+          border-color: #2563eb;
+          box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+        }
+
+        .styled-input {
+          flex: 1;
+          background: transparent;
+          border: none;
+          color: #0f172a;
+          padding: 1.25rem 0 1.25rem 1rem;
+          font-size: 1.05rem;
+          outline: none;
+          font-weight: 500;
+        }
+        
+        .styled-input::placeholder {
+          color: #64748b;
+        }
+
+        .cust-btn-primary {
+          width: 100%;
+          padding: 1.25rem;
+          background: #f97316;
+          color: #fff;
+          border: none;
+          border-radius: 0.875rem;
+          font-weight: 700;
+          font-size: 1.05rem;
+          cursor: pointer;
+          transition: all 0.2s;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.5rem;
+          box-shadow: 0 4px 14px 0 rgba(249, 115, 22, 0.39);
+        }
+        
+        .cust-btn-primary:hover:not(:disabled) {
+          background: #ea580c;
+          transform: translateY(-1px);
+          box-shadow: 0 6px 20px rgba(249, 115, 22, 0.4);
+        }
+        
+        .cust-btn-primary:disabled {
+          background: #f1f5f9;
+          color: #94a3b8;
+          cursor: not-allowed;
+          box-shadow: none;
         }
 
         @media (max-width: 600px) {
           .cust-modal-box { 
-            border-radius: 1.25rem 1.25rem 0 0; 
+            border-radius: 1.5rem 1.5rem 0 0; 
             max-height: 92vh; 
             margin-top: auto;
           }
@@ -282,353 +385,199 @@ export function CustomerLoginModal() {
             padding: 0; 
           }
         }
+        
+        /* Custom Scrollbar for Modal Content */
+        .modal-scroll-content::-webkit-scrollbar {
+          width: 6px;
+        }
+        .modal-scroll-content::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .modal-scroll-content::-webkit-scrollbar-thumb {
+          background: rgba(255,255,255,0.1);
+          border-radius: 10px;
+        }
+        .modal-scroll-content::-webkit-scrollbar-thumb:hover {
+          background: rgba(255,255,255,0.2);
+        }
       `}</style>
-    <div
-      className="cust-modal-wrapper"
-      onClick={handleClose}
-    >
-      <div
-        className="cust-modal-box"
-        onClick={e => e.stopPropagation()}
-      >
-        <div style={{
-          display: 'flex', flexDirection: 'column',
-          overflowY: 'auto',
-          position: 'relative',
-        }}>
+      
+      <div className="cust-modal-wrapper" onClick={handleClose}>
+        <div className="cust-modal-box" onClick={e => e.stopPropagation()}>
+          
           {/* Close button */}
           <button
             onClick={handleClose}
             style={{
-              position: 'absolute', top: '1.25rem', right: '1.25rem',
-              border: 'none', background: '#f3f4f6', cursor: 'pointer',
+              position: 'absolute', top: '1rem', right: '1rem',
+              border: 'none', background: 'rgba(0,0,0,0.05)', cursor: 'pointer',
               width: 32, height: 32, borderRadius: '50%',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: '#6b7280', transition: 'all 0.15s',
-              zIndex: 10,
+              color: '#64748b', transition: 'all 0.15s',
+              zIndex: 10
             }}
-            onMouseEnter={e => (e.currentTarget.style.background = '#e5e7eb')}
-            onMouseLeave={e => (e.currentTarget.style.background = '#f3f4f6')}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.1)'; e.currentTarget.style.color = '#0f172a' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.05)'; e.currentTarget.style.color = '#64748b' }}
           >
-            <X size={16} />
+            <X size={18} strokeWidth={2.5} />
           </button>
 
-          <div style={{ padding: '2.5rem 2rem', flex: 1 }}>
-
-            {/* ── PHONE STEP ─────────────────────────────── */}
-            {step === 'phone' && (
-              <div style={{ animation: 'slideUp 0.2s ease' }}>
-                {/* Tab switcher */}
-                <div style={{
-                  display: 'inline-flex', background: '#f3f4f6',
-                  borderRadius: '0.875rem', padding: '0.25rem',
-                  marginBottom: '1.75rem',
-                }}>
-                  {(['login', 'register'] as const).map(tab => (
-                    <button
-                      key={tab}
-                      type="button"
-                      onClick={() => setActiveTab(tab)}
-                      style={{
-                        border: 'none', cursor: 'pointer',
-                        padding: '0.5rem 1rem',
-                        borderRadius: '0.625rem',
-                        fontSize: '0.825rem', fontWeight: 700,
-                        display: 'flex', alignItems: 'center', gap: '0.35rem',
-                        background: activeTab === tab ? '#fff' : 'transparent',
-                        color: activeTab === tab ? '#1e1b4b' : '#9ca3af',
-                        boxShadow: activeTab === tab ? '0 1px 4px rgba(0,0,0,0.1)' : 'none',
-                        transition: 'all 0.15s',
-                      }}
-                    >
-                      {tab === 'login' ? <LogIn size={14} /> : <UserPlus size={14} />}
-                      {tab === 'login' ? 'Login' : 'Register'}
-                    </button>
-                  ))}
-                </div>
-
-                <h3 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#1e1b4b', marginBottom: '0.35rem' }}>
-                  {activeTab === 'login' ? 'Welcome back 👋' : 'Create your account'}
-                </h3>
-                <p style={{ fontSize: '0.825rem', color: '#6b7280', marginBottom: '1rem', lineHeight: 1.55 }}>
-                  {activeTab === 'login'
-                    ? 'Enter your phone or email to receive a one-time password.'
-                    : 'Register to submit service requests and track them in real time.'}
+          <div className="modal-scroll-content" style={{ padding: '2rem 1.75rem', overflowY: 'auto', flex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#60a5fa', fontWeight: 800, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.075em', marginBottom: '0.75rem' }}>
+              <User size={14} strokeWidth={2.5} /> CUSTOMER
+            </div>
+            
+            <h2 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#0f172a', margin: '0 0 0.75rem 0', letterSpacing: '-0.02em' }}>
+              Customer Login
+            </h2>
+            
+            {step === 'identifier' && (
+              <>
+                <p style={{ color: '#64748b', fontSize: '1rem', lineHeight: 1.6, marginBottom: '2.5rem' }}>
+                  Enter your phone number or email and we'll send you a one-time code.
                 </p>
 
-                {/* Auth method toggle */}
-                <div style={{
-                  display: 'flex', gap: '0.5rem', marginBottom: '1.25rem',
-                }}>
-                  {(['phone', 'email'] as const).map(method => (
-                    <button
-                      key={method}
-                      type="button"
-                      onClick={() => resetAuthFields(method)}
-                      style={{
-                        flex: 1, padding: '0.5rem',
-                        borderRadius: '0.625rem',
-                        border: `2px solid ${authMethod === method ? '#4f46e5' : '#e5e7eb'}`,
-                        background: authMethod === method ? '#eef2ff' : '#fff',
-                        color: authMethod === method ? '#4f46e5' : '#6b7280',
-                        fontWeight: 700, fontSize: '0.8rem',
-                        cursor: 'pointer', transition: 'all 0.15s',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem',
-                      }}
-                    >
-                      {method === 'phone' ? <Phone size={14} /> : <Mail size={14} />}
-                      {method === 'phone' ? 'Phone OTP' : 'Email OTP'}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Suspension alert */}
                 {userStatus?.isSuspended && (
-                  <div style={{ background: '#fef2f2', border: '1.5px solid #fca5a5', borderRadius: '0.875rem', padding: '0.875rem 1rem', marginBottom: '1rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 800, color: '#b91c1c', marginBottom: '0.3rem' }}>
+                  <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '0.75rem', padding: '1rem', marginBottom: '1.5rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 700, color: '#fca5a5', marginBottom: '0.25rem' }}>
                       <Ban size={16} /> Account Suspended
                     </div>
-                    <div style={{ fontSize: '0.8rem', color: '#991b1b', lineHeight: 1.5 }}>
-                      {userStatus.suspensionReason || 'Contact support to restore your account.'}
+                    <div style={{ fontSize: '0.85rem', color: '#f87171' }}>
+                      {userStatus.suspensionReason || 'Contact support.'}
                     </div>
                   </div>
                 )}
 
-                {/* Existing user found badge */}
-                {userStatus?.exists && !userStatus.isSuperAdmin && !userStatus.isSuspended && (
-                  <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '0.75rem', padding: '0.625rem 0.875rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.825rem', fontWeight: 600, color: '#166534' }}>
-                    <CheckCircle size={16} style={{ color: '#22c55e', flexShrink: 0 }} />
-                    Account found: <strong>{userStatus.name || 'Registered Customer'}</strong>
+                <form onSubmit={handleSendOtp}>
+                  <label style={{ display: 'block', color: '#334155', fontWeight: 700, fontSize: '0.95rem', marginBottom: '0.875rem' }}>
+                    Phone number or email
+                  </label>
+                  <div className="input-group">
+                    <User size={18} style={{ color: '#6366f1', flexShrink: 0 }} />
+                    <input 
+                      type="text"
+                      placeholder="98765 43210 or you@email.com"
+                      value={identifier}
+                      onChange={e => setIdentifier(e.target.value)}
+                      className="styled-input"
+                      autoFocus
+                    />
                   </div>
-                )}
 
-                {/* Admin account badge - Hidden as Generic for Security */}
-                {userStatus?.isSuperAdmin && (
-                  <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '0.75rem', padding: '0.875rem 1rem', marginBottom: '1rem', display: 'flex', flexDirection: 'column', gap: '0.4rem', color: '#166534' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 800, fontSize: '0.85rem' }}>
-                      <CheckCircle size={16} style={{ color: '#22c55e', flexShrink: 0 }} /> Account Already Registered
-                    </div>
-                    <div style={{ fontSize: '0.75rem', lineHeight: 1.4 }}>
-                      This number is associated with a different account type. Please use the correct login portal.
-                    </div>
-                  </div>
-                )}
-
-
-                <form onSubmit={handleSendOtp} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  {/* Phone / Email field */}
-                  {authMethod === 'phone' ? (
-                    <div>
-                      <label style={{ fontSize: '0.78rem', fontWeight: 700, color: '#374151', display: 'block', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.3px' }}>
-                        Mobile Number *
-                      </label>
-                      <div style={{ display: 'flex', borderRadius: '0.75rem', overflow: 'hidden', border: `2px solid ${phone.length === 10 ? '#4f46e5' : '#e5e7eb'}`, transition: 'border-color 0.15s', background: '#fff' }}>
-                        <div style={{ padding: '0.75rem 0.875rem', background: '#f8fafc', borderRight: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', gap: '0.375rem', color: '#374151', fontSize: '0.875rem', fontWeight: 700, whiteSpace: 'nowrap' }}>
-                          <Phone size={14} style={{ color: '#4f46e5' }} /> +91
-                        </div>
-                        <input
-                          type="tel" required maxLength={10} inputMode="numeric"
-                          placeholder="98XXXXXXXX"
-                          value={phone}
-                          onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                          autoFocus
-                          style={{ flex: 1, border: 'none', outline: 'none', padding: '0.75rem', fontSize: '1rem', fontWeight: 600, letterSpacing: '1px', background: 'transparent', color: '#1e1b4b' }}
-                        />
-                        {checking && (
-                          <div style={{ padding: '0 0.875rem', display: 'flex', alignItems: 'center' }}>
-                            <div style={{ width: 16, height: 16, borderRadius: '50%', border: '2px solid #e5e7eb', borderTopColor: '#4f46e5', animation: 'spin 0.6s linear infinite' }} />
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ) : (
-                    <div>
-                      <label style={{ fontSize: '0.78rem', fontWeight: 700, color: '#374151', display: 'block', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.3px' }}>
-                        Email Address *
-                      </label>
-                      <div style={{ display: 'flex', borderRadius: '0.75rem', overflow: 'hidden', border: `2px solid ${email.includes('@') ? '#4f46e5' : '#e5e7eb'}`, transition: 'border-color 0.15s', background: '#fff' }}>
-                        <div style={{ padding: '0.75rem 0.875rem', background: '#f8fafc', borderRight: '1px solid #e5e7eb', display: 'flex', alignItems: 'center' }}>
-                          <Mail size={15} style={{ color: '#4f46e5' }} />
-                        </div>
-                        <input
-                          type="email" required
-                          placeholder="you@example.com"
-                          value={email}
-                          onChange={e => setEmail(e.target.value)}
-                          autoFocus
-                          style={{ flex: 1, border: 'none', outline: 'none', padding: '0.75rem', fontSize: '0.95rem', fontWeight: 500, background: 'transparent', color: '#1e1b4b' }}
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Name field (registration) */}
-                  {isRegistering && !userStatus?.isSuspended && (
-                    <div style={{ animation: 'slideUp 0.15s ease' }}>
-                      <label style={{ fontSize: '0.78rem', fontWeight: 700, color: '#374151', display: 'block', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.3px' }}>
-                        Full Name *
-                      </label>
-                      <div style={{ display: 'flex', borderRadius: '0.75rem', overflow: 'hidden', border: '2px solid #e5e7eb', background: '#fff' }}>
-                        <div style={{ padding: '0.75rem 0.875rem', background: '#f8fafc', borderRight: '1px solid #e5e7eb', display: 'flex', alignItems: 'center' }}>
-                          <User size={15} style={{ color: '#4f46e5' }} />
-                        </div>
-                        <input
-                          type="text" required placeholder="e.g. Rahul Sharma"
-                          value={name} onChange={e => setName(e.target.value)}
-                          style={{ flex: 1, border: 'none', outline: 'none', padding: '0.75rem', fontSize: '0.95rem', fontWeight: 500, background: 'transparent', color: '#1e1b4b' }}
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Submit */}
-                  <button
-                    type="submit"
-                    disabled={sending || loading || checking || (authMethod === 'phone' ? phone.length < 10 : !email.includes('@')) || !!userStatus?.isSuperAdmin || !!userStatus?.isSuspended}
-                    style={{
-                      marginTop: '0.25rem',
-                      padding: '0.875rem',
-                      borderRadius: '0.875rem',
-                      border: 'none',
-                      cursor: (userStatus?.isSuspended || userStatus?.isSuperAdmin) ? 'not-allowed' : 'pointer',
-                      background: userStatus?.isSuspended
-                        ? '#ef4444'
-                        : (sending || checking || userStatus?.isSuperAdmin || (authMethod === 'phone' ? phone.length < 10 : !email.includes('@')))
-                        ? '#e5e7eb'
-                        : 'linear-gradient(135deg, #4f46e5, #6366f1)',
-                      color: (sending || checking || userStatus?.isSuperAdmin || (authMethod === 'phone' ? phone.length < 10 : !email.includes('@'))) ? '#9ca3af' : '#fff',
-                      fontWeight: 800,
-                      fontSize: '0.95rem',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
-                      boxShadow: (sending || checking || userStatus?.isSuperAdmin || (authMethod === 'phone' ? phone.length < 10 : !email.includes('@'))) ? 'none' : '0 4px 16px rgba(79,70,229,0.35)',
-                      transition: 'all 0.15s',
-                    }}
+                  <button 
+                    type="submit" 
+                    className="cust-btn-primary" 
+                    style={{ marginTop: '2.5rem' }}
+                    disabled={sending || checking || userStatus?.isSuspended || !isValidIdentifier}
                   >
-                    {sending ? (
-                      <>
-                        <div style={{ width: 16, height: 16, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', animation: 'spin 0.6s linear infinite' }} />
-                        Sending OTP…
-                      </>
-                    ) : checking ? (
-                      <>
-                        <div style={{ width: 16, height: 16, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', animation: 'spin 0.6s linear infinite' }} />
-                        Checking…
-                      </>
-                    ) : userStatus?.isSuspended ? (
-                      <><Ban size={17} /> Account Suspended — Contact Support</>
-                    ) : (
-                      <><KeyRound size={17} /> {authMethod === 'phone' ? 'Send SMS OTP' : 'Send Email OTP'} →</>
-                    )}
+                    {sending || checking ? 'Wait...' : 'Send OTP \u2192'}
                   </button>
                 </form>
 
-                {/* Toggle link */}
-                <p style={{ marginTop: '1.25rem', textAlign: 'center', fontSize: '0.8rem', color: '#9ca3af' }}>
-                  {activeTab === 'login' ? (
-                    <>New here?{' '}
-                      <button type="button" onClick={() => setActiveTab('register')} style={{ background: 'none', border: 'none', color: '#4f46e5', fontWeight: 700, cursor: 'pointer' }}>
-                        Create an account →
-                      </button>
-                    </>
-                  ) : (
-                    <>Already registered?{' '}
-                      <button type="button" onClick={() => setActiveTab('login')} style={{ background: 'none', border: 'none', color: '#4f46e5', fontWeight: 700, cursor: 'pointer' }}>
-                        Login →
-                      </button>
-                    </>
-                  )}
+                <div style={{ textAlign: 'center', marginTop: '2rem', color: '#94a3b8', fontSize: '0.95rem' }}>
+                  New here? <button onClick={() => setStep('register_details')} style={{ color: '#60a5fa', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'none', fontWeight: 700, fontSize: '0.95rem', padding: 0 }}>Create a customer account &rarr;</button>
+                </div>
+              </>
+            )}
+
+            {step === 'register_details' && (
+              <div style={{ animation: 'slideUp 0.2s ease' }}>
+                <p style={{ color: '#64748b', fontSize: '1rem', lineHeight: 1.6, marginBottom: '2.5rem' }}>
+                  {identifier ? <>We couldn't find an account for <strong>{identifier}</strong>. </> : 'Welcome to MistriJi! '}Please tell us your details to continue.
                 </p>
+                <form onSubmit={handleSendOtp}>
+                  <label style={{ display: 'block', color: '#334155', fontWeight: 700, fontSize: '0.95rem', marginBottom: '0.875rem' }}>
+                    Phone number or email
+                  </label>
+                  <div className="input-group" style={{ marginBottom: '1.5rem' }}>
+                    <User size={18} style={{ color: '#6366f1', flexShrink: 0 }} />
+                    <input 
+                      type="text" 
+                      placeholder="e.g. 98765 43210 or you@email.com"
+                      value={identifier}
+                      onChange={e => setIdentifier(e.target.value)}
+                      className="styled-input"
+                    />
+                  </div>
+
+                  <label style={{ display: 'block', color: '#334155', fontWeight: 700, fontSize: '0.95rem', marginBottom: '0.875rem' }}>
+                    Full Name
+                  </label>
+                  <div className="input-group">
+                    <User size={18} style={{ color: '#6366f1', flexShrink: 0 }} />
+                    <input 
+                      type="text"
+                      placeholder="e.g. Rahul Sharma"
+                      value={name}
+                      onChange={e => setName(e.target.value)}
+                      className="styled-input"
+                    />
+                  </div>
+
+                  <button 
+                    type="submit" 
+                    className="cust-btn-primary" 
+                    style={{ marginTop: '2.5rem' }}
+                    disabled={sending || checking || !name.trim() || !isValidIdentifier}
+                  >
+                    {sending || checking ? 'Wait...' : 'Send OTP \u2192'}
+                  </button>
+                </form>
+                <div style={{ textAlign: 'center', marginTop: '1.5rem' }}>
+                   <button onClick={() => setStep('identifier')} style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '0.9rem', cursor: 'pointer', textDecoration: 'underline' }}>
+                     Back to Login
+                   </button>
+                </div>
               </div>
             )}
 
-            {/* ── OTP STEP ───────────────────────────────── */}
             {step === 'otp' && (
-              <form onSubmit={handleVerifyOtp} style={{ animation: 'slideUp 0.2s ease' }}>
-                {/* Back + Phone badge */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.75rem' }}>
-                  <button
-                    type="button" onClick={() => { setStep('phone'); setOtp('') }}
-                    style={{ border: 'none', background: '#f3f4f6', borderRadius: '50%', width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#374151', flexShrink: 0 }}
-                  >
-                    <ArrowLeft size={15} />
-                  </button>
-                  <div>
-                    <div style={{ fontWeight: 700, color: '#1e1b4b', fontSize: '0.9rem' }}>
-                      Verify your {authMethod === 'phone' ? 'number' : 'email'}
-                    </div>
-                    <div style={{ fontSize: '0.775rem', color: '#6b7280' }}>
-                      OTP sent to <strong>{authMethod === 'phone' ? `+91 ${phone}` : email}</strong>
-                    </div>
-                  </div>
-                </div>
-
-                <h3 style={{ fontSize: '1.35rem', fontWeight: 800, color: '#1e1b4b', marginBottom: '0.35rem' }}>Enter OTP</h3>
-                <p style={{ fontSize: '0.825rem', color: '#6b7280', marginBottom: '1.25rem', lineHeight: 1.55 }}>
-                  Enter the 6-digit code sent to your {authMethod === 'phone' ? 'mobile number' : 'email inbox'}.
+              <div style={{ animation: 'slideUp 0.2s ease' }}>
+                <p style={{ color: '#64748b', fontSize: '1rem', lineHeight: 1.6, marginBottom: '2.5rem' }}>
+                  We've sent a secure 6-digit code to <strong>{isEmail ? identifier : `+91 ${identifier.replace(/\D/g, '')}`}</strong>.
                 </p>
 
-                {/* Check spam notice for email */}
-                {authMethod === 'email' && (
-                  <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '0.75rem', padding: '0.6rem 0.875rem', marginBottom: '1rem', fontSize: '0.78rem', color: '#92400e', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                    <Mail size={14} style={{ flexShrink: 0 }} /> Check your spam/junk folder if you don't see the email.
-                  </div>
-                )}
+                <form onSubmit={handleVerifyOtp}>
+                  <OtpInput 
+                    value={otp} 
+                    onChange={setOtp} 
+                    onComplete={() => {}}
+                    disabled={loading}
+                  />
 
-                {/* OTP boxes */}
-                <div style={{ marginBottom: '1.75rem' }}>
-                  <OtpBoxes value={otp} onChange={setOtp} />
+                  <button 
+                    type="submit" 
+                    className="cust-btn-primary" 
+                    style={{ marginTop: '1.5rem' }}
+                    disabled={loading || otp.length < 6}
+                  >
+                    {loading ? 'Verifying...' : 'Login Securely \u2192'}
+                  </button>
+                </form>
+                
+                <div style={{ textAlign: 'center', marginTop: '2rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  <button
+                    type="button"
+                    onClick={handleSendOtp}
+                    disabled={resendCountdown > 0 || sending}
+                    style={{
+                      background: 'none', border: 'none', color: resendCountdown > 0 ? '#64748b' : '#60a5fa',
+                      fontSize: '0.95rem', fontWeight: 600, cursor: resendCountdown > 0 ? 'not-allowed' : 'pointer',
+                      padding: 0
+                    }}
+                  >
+                    {resendCountdown > 0 ? `Resend OTP in ${Math.floor(resendCountdown / 60)}:${(resendCountdown % 60).toString().padStart(2, '0')}` : 'Resend OTP'}
+                  </button>
+                  <button onClick={() => setStep('identifier')} style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '0.9rem', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}>
+                     Change {isEmail ? 'email' : 'phone number'}
+                   </button>
                 </div>
-
-                {/* Verify button */}
-                <button
-                  type="submit"
-                  disabled={loading || otp.length < 6}
-                  style={{
-                    width: '100%',
-                    padding: '0.9rem',
-                    borderRadius: '0.875rem',
-                    border: 'none',
-                    cursor: otp.length < 6 ? 'not-allowed' : 'pointer',
-                    background: otp.length < 6 ? '#e5e7eb' : 'linear-gradient(135deg, #4f46e5, #6366f1)',
-                    color: otp.length < 6 ? '#9ca3af' : '#fff',
-                    fontWeight: 800, fontSize: '0.95rem',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
-                    boxShadow: otp.length < 6 ? 'none' : '0 4px 16px rgba(79,70,229,0.35)',
-                    transition: 'all 0.15s',
-                  }}
-                >
-                  {loading ? (
-                    <><div style={{ width: 16, height: 16, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', animation: 'spin 0.6s linear infinite' }} /> Verifying…</>
-                  ) : (
-                    <><ShieldCheck size={17} /> Verify &amp; Continue</>
-                  )}
-                </button>
-
-                {/* Resend */}
-                <div style={{ textAlign: 'center', marginTop: '1rem', fontSize: '0.8rem', color: '#9ca3af' }}>
-                  {resendCountdown > 0 ? (
-                    <span>Resend OTP in <strong style={{ color: '#4f46e5' }}>{resendCountdown}s</strong></span>
-                  ) : (
-                    <button type="button" onClick={async () => {
-                      const identifier = authMethod === 'phone' ? phone : email
-                      const result = await sendOTP(identifier, authMethod)
-                      if (result.success) {
-                        setResendCountdown(60)
-                        toast.success('New OTP sent!')
-                      } else {
-                        toast.error(result.error || 'Error')
-                      }
-                    }} style={{ background: 'none', border: 'none', color: '#4f46e5', fontWeight: 700, cursor: 'pointer' }}>
-                      Resend OTP →
-                    </button>
-                  )}
-                </div>
-              </form>
+              </div>
             )}
+
           </div>
         </div>
       </div>
-    </div>
     </>
   )
 }

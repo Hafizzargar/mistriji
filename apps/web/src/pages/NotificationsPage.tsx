@@ -107,9 +107,9 @@ export function NotificationsPage() {
       window.dispatchEvent(new CustomEvent('open-support-chat'))
     } else if (notif.type === 'booking_alert' || notif.type === 'job_update') {
       if (customer?.role === 'worker') {
-        navigate('/worker')
+        navigate('/worker/dashboard')
       } else {
-        navigate('/my-bookings')
+        navigate('/customer/bookings')
       }
     }
   }
@@ -230,8 +230,8 @@ export function NotificationsPage() {
       <div style={{ marginBottom: '2rem', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
           <a
-            href="/"
-            onClick={e => { e.preventDefault(); navigate('/') }}
+            href={customer?.role === 'worker' ? '/worker/dashboard' : '/customer/dashboard'}
+            onClick={e => { e.preventDefault(); navigate(customer?.role === 'worker' ? '/worker/dashboard' : '/customer/dashboard') }}
             style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', color: '#4f46e5', fontWeight: 700, fontSize: '0.85rem', textDecoration: 'none', marginBottom: '0.5rem' }}
           >
             <ArrowLeft size={15} /> Back to Home

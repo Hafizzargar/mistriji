@@ -23,13 +23,12 @@ import {
 import { useCustomerAuth } from '@/contexts/CustomerAuthContext'
 import { useToast } from '@/contexts/ToastContext'
 import { WorkerAuthModal } from '@/components/WorkerAuthModal'
-import { UserProfileModal } from '@/components/UserProfileModal'
 import { SupportChatModal } from '@/components/SupportChatModal'
 import { NotificationBell } from './NotificationBell'
 
 export function Navbar({ currentArea }: { currentArea: string }) {
   const location = useLocation()
-  const { customer, isLoggedIn, logout, openLoginModal, openProfileModal } = useCustomerAuth()
+  const { customer, isLoggedIn, logout, openLoginModal } = useCustomerAuth()
   const toast = useToast()
   const [showWorkerModal, setShowWorkerModal] = useState(false)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -114,8 +113,8 @@ export function Navbar({ currentArea }: { currentArea: string }) {
             {/* My Bookings Link (Hidden for workers and guests) */}
             {isLoggedIn && customer?.role !== 'worker' && (
               <Link
-                to="/my-bookings"
-                className={`navbar-link ${location.pathname === '/my-bookings' ? 'active' : ''}`}
+                to="/customer/bookings"
+                className={`navbar-link ${location.pathname === '/customer/bookings' ? 'active' : ''}`}
                 title="Track your service requests"
               >
                 <Calendar size={14} />
@@ -126,10 +125,10 @@ export function Navbar({ currentArea }: { currentArea: string }) {
             {/* Worker Dashboard Link */}
             {isLoggedIn && customer?.role === 'worker' && (
               <Link
-                to="/worker"
-                className={`navbar-link ${location.pathname === '/worker' ? 'active' : ''}`}
+                to="/worker/dashboard"
+                className={`navbar-link ${location.pathname === '/worker/dashboard' ? 'active' : ''}`}
                 title="Worker Dashboard"
-                style={{ background: location.pathname === '/worker' ? 'rgba(16, 185, 129, 0.15)' : undefined }}
+                style={{ background: location.pathname === '/worker/dashboard' ? 'rgba(16, 185, 129, 0.15)' : undefined }}
               >
                 <HardHat size={14} style={{ color: '#10b981' }} />
                 <span className="navbar-link-text">My Jobs</span>
@@ -205,14 +204,14 @@ export function Navbar({ currentArea }: { currentArea: string }) {
                     )}
 
                     {customer?.role === 'worker' && (
-                      <Link to="/worker" className="navbar-dropdown-item" onClick={() => setIsMenuOpen(false)}>
+                      <Link to="/worker/dashboard" className="navbar-dropdown-item" onClick={() => setIsMenuOpen(false)}>
                         <HardHat size={14} style={{ color: '#10b981' }} /> My Jobs Dashboard
                       </Link>
                     )}
                     
-                    <button onClick={() => { setIsMenuOpen(false); openProfileModal(); }} className="navbar-dropdown-item">
+                    <Link to={customer?.role === 'worker' ? "/worker/profile" : "/customer/profile"} onClick={() => setIsMenuOpen(false)} className="navbar-dropdown-item">
                       <User size={14} style={{ color: '#818cf8' }} /> Edit Profile
-                    </button>
+                    </Link>
                     
                     <button onClick={() => { setIsMenuOpen(false); setIsSupportOpen(true); }} className="navbar-dropdown-item" style={{ position: 'relative' }}>
                       <MessageCircle size={14} style={{ color: '#38bdf8' }} /> Support Chat
@@ -236,8 +235,7 @@ export function Navbar({ currentArea }: { currentArea: string }) {
         </div>
       </header>
 
-      {/* User Profile Edit Modal */}
-      <UserProfileModal />
+
 
       {/* Worker Registration & Login Modal */}
       <WorkerAuthModal

@@ -5,12 +5,56 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useToast } from '@/contexts/ToastContext'
 import { logAdminAction } from '@/lib/auditLogger'
 import { DataTable, Column } from '@/components/ui/DataTable'
-import { PlusCircle, Edit3, Trash2, UserCheck, RefreshCw, Star, Briefcase, Eye, X, Award, Ban, CheckCircle, ArrowLeft, ShieldCheck, ChevronRight } from 'lucide-react'
+import { PlusCircle, Edit3, Trash2, UserCheck, RefreshCw, Star, Briefcase, Eye, X, Award, Ban, CheckCircle, ArrowLeft, ShieldCheck, ChevronRight, ChevronDown, Search } from 'lucide-react'
+import { BreadcrumbHeader } from '@/components/ui/BreadcrumbHeader'
 import { JAMMU_AREAS, JAMMU_DISTRICT_OPTIONS, getAreasForDistrict } from '@/lib/jammuCoordinates'
 
 type VerificationStatus = 'pending' | 'verified' | 'rejected'
 type PhoneType = 'smartphone' | 'keypad' | 'none'
 type FilterType = 'all' | 'pending' | 'verified' | 'rejected' | 'disabled'
+
+function CustomDropdown({ options, value, onChange, placeholder = "Select..." }: { options: string[], value: string, onChange: (val: string) => void, placeholder?: string }) {
+  const [open, setOpen] = useState(false)
+  const ref = React.useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  return (
+    <div ref={ref} style={{ position: 'relative', width: '100%' }}>
+      <div 
+        className="input"
+        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', background: '#fff', width: '100%' }}
+        onClick={() => setOpen(!open)}
+      >
+        <span style={{ color: value ? '#0f172a' : '#94a3b8' }}>{value || placeholder}</span>
+        <ChevronDown size={16} color="#64748b" style={{ transform: open ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} />
+      </div>
+      {open && (
+        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50, background: '#fff', border: '1px solid #e2e8f0', borderRadius: '0.5rem', marginTop: '0.25rem', maxHeight: '200px', overflowY: 'auto', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}>
+          {options.map(opt => (
+            <div 
+              key={opt}
+              style={{ padding: '0.65rem 1rem', cursor: 'pointer', background: value === opt ? '#eef2ff' : 'transparent', color: value === opt ? '#4f46e5' : '#1e293b', fontSize: '0.9rem', fontWeight: value === opt ? 600 : 400 }}
+              onMouseOver={e => e.currentTarget.style.background = value === opt ? '#eef2ff' : '#f8fafc'}
+              onMouseOut={e => e.currentTarget.style.background = value === opt ? '#eef2ff' : 'transparent'}
+              onClick={() => { onChange(opt); setOpen(false); }}
+            >
+              {opt}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 interface RatingItem {
   score: number
@@ -35,8 +79,9 @@ interface Worker {
   email: string | null
   status: string
   suspension_reason?: string | null
+  suspension_expiry?: string | null
   created_at: string
-  profiles: { name: string; area: string; photo_url: string | null } | null
+  profiles: { name: string; area: string; district?: string; city?: string; photo_url: string | null } | null
   worker_profiles: {
     verification_status: VerificationStatus
     is_available: boolean
@@ -117,6 +162,7 @@ export function WorkersPage() {
   const [editAccountStatus, setEditAccountStatus] = useState<string>('active')
   const [editRole, setEditRole]           = useState<string>('worker')
   const [editSuspensionReason, setEditSuspensionReason] = useState<string>('')
+  const [editSuspensionExpiry, setEditSuspensionExpiry] = useState<string>('')
   const [editPhoneType, setEditPhoneType] = useState<PhoneType>('smartphone')
   const [editSkills, setEditSkills]       = useState<string[]>([])
   const [availableSkills, setAvailableSkills] = useState<{id: string; name: string; icon: string}[]>([])
@@ -144,8 +190,8 @@ export function WorkersPage() {
     let query = supabase
       .from('users')
       .select(`
-        id, phone, email, status, created_at, role,
-        profiles (name, area, photo_url),
+        id, phone, email, status, suspension_expiry, created_at, role,
+        profiles (name, area, district, city, photo_url),
         worker_profiles (verification_status, is_available, experience_years, phone_type, enrollment_method),
         worker_skills (skill_id, skills (id, name, icon)),
         worker_jobs:jobs!jobs_worker_id_fkey (
@@ -269,6 +315,16 @@ export function WorkersPage() {
       if (uErr) throw uErr
       await supabase.from('profiles').update({ photo_url: storedPhotoUrl }).eq('user_id', worker.id)
       await supabase.from('worker_profiles').update({ is_available: isAvailable }).eq('user_id', worker.id)
+      
+      if (newStatus === 'suspended') {
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3002'
+        fetch(`${apiUrl}/api/admin/revoke-session`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: worker.id })
+        }).catch(err => console.error('Failed to revoke session:', err))
+      }
+
       toast.success(isCurrentlyDisabled ? 'Worker account enabled!' : 'Worker account suspended & logged out!')
       
       logAdminAction({
@@ -303,6 +359,7 @@ export function WorkersPage() {
     setEditStatus(worker.worker_profiles?.verification_status ?? 'pending')
     setEditAccountStatus(worker.status ?? 'active')
     setEditSuspensionReason(getWorkerSuspensionReason(worker) || 'Suspended by Administrator')
+    setEditSuspensionExpiry(worker.suspension_expiry ? new Date(worker.suspension_expiry).toISOString().slice(0, 16) : '')
     setEditPhoneType(worker.worker_profiles?.phone_type ?? 'smartphone')
     
     // Extract assigned skill IDs
@@ -360,8 +417,18 @@ export function WorkersPage() {
       const storedPhotoUrl = editAccountStatus === 'suspended'
         ? `suspension_reason:${editSuspensionReason.trim() || 'Suspended by Administrator'}`
         : null
+        
+      const suspensionExpiryVal = (editAccountStatus === 'suspended' && editSuspensionExpiry) 
+        ? new Date(editSuspensionExpiry).toISOString() 
+        : null
 
-      const { error: uErr } = await supabase.from('users').update({ phone: cleanPhone, email: editEmail.trim() || null, status: editAccountStatus, role: editRole }).eq('id', editingWorker.id)
+      const { error: uErr } = await supabase.from('users').update({ 
+        phone: cleanPhone, 
+        email: editEmail.trim() || null, 
+        status: editAccountStatus, 
+        role: editRole,
+        suspension_expiry: suspensionExpiryVal
+      }).eq('id', editingWorker.id)
       if (uErr) throw uErr
 
       await supabase.from('profiles').upsert({
@@ -392,6 +459,15 @@ export function WorkersPage() {
         await supabase.from('worker_skills').insert(
           editSkills.map(skill_id => ({ worker_id: editingWorker.id, skill_id }))
         )
+      }
+
+      if (editAccountStatus === 'suspended') {
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3002'
+        fetch(`${apiUrl}/api/admin/revoke-session`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: editingWorker.id })
+        }).catch(err => console.error('Failed to revoke session:', err))
       }
 
       toast.success(editAccountStatus === 'suspended' ? 'Worker profile updated and account suspended!' : 'Worker profile updated!')
@@ -516,7 +592,14 @@ export function WorkersPage() {
               <span style={{ fontSize: '0.75rem', color: 'var(--gray-400)' }}>No skills</span>
             )}
           </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--gray-500)' }}>📍 {w.profiles?.area ?? 'Jammu'}</div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--gray-500)' }}>
+            📍 {(() => {
+              const a = w.profiles?.area;
+              const d = w.profiles?.district;
+              if (a && d && a.toLowerCase() !== d.toLowerCase()) return `${a}, ${d}`;
+              return a || d || 'Jammu';
+            })()}
+          </div>
         </div>
       )
     },
@@ -578,26 +661,13 @@ export function WorkersPage() {
   if (editingWorker) {
     return (
       <div className="admin-content" style={{ paddingBottom: '3rem', animation: 'fadeIn 0.2s ease' }}>
-        <div className="page-header" style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: '1.5rem' }}>
-          <button className="btn btn-secondary" onClick={() => { setEditingWorker(null); setSearchParams({}); }} style={{ padding: '0.5rem' }}>
-            <ArrowLeft size={18} /> Back
-          </button>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
-              <button 
-                onClick={() => { setEditingWorker(null); setSearchParams({}); }}
-                style={{ background: 'none', border: 'none', padding: 0, color: '#64748b', cursor: 'pointer', fontSize: '0.875rem', fontWeight: 500 }}
-                className="hover-text"
-              >
-                Workers
-              </button>
-              <ChevronRight size={14} color="#94a3b8" />
-              <span style={{ fontSize: '0.875rem', fontWeight: 500, color: '#0f172a' }}>Profile</span>
-            </div>
-            <h1 className="page-title">{editName || 'Worker Profile'}</h1>
-            <p className="page-subtitle">Manage details, history, and status for {editName}</p>
-          </div>
-        </div>
+        <BreadcrumbHeader 
+          parentLabel="Workers"
+          currentLabel="Profile"
+          title={editName || 'Worker Profile'}
+          subtitle={`Manage details, history, and status for ${editName}`}
+          onBack={() => { setEditingWorker(null); setSearchParams({}); }}
+        />
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: '1.5rem', alignItems: 'start' }}>
           
@@ -638,39 +708,29 @@ export function WorkersPage() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.875rem' }}>
                 <div>
                   <label className="label">District *</label>
-                  <select
-                    className="input"
+                  <CustomDropdown
                     value={editDistrict}
-                    onChange={e => {
-                      const nextDistrict = e.target.value
-                      setEditDistrict(nextDistrict)
-                      const nextAreas = getAreasForDistrict(nextDistrict)
+                    onChange={(val) => {
+                      setEditDistrict(val)
+                      const nextAreas = getAreasForDistrict(val)
                       const nextArea = nextAreas[0] || editArea
                       setEditArea(nextArea)
                       setEditPincode(JAMMU_AREAS[nextArea]?.pincode || '')
                     }}
-                  >
-                    {JAMMU_DISTRICT_OPTIONS.map(d => (
-                      <option key={d} value={d}>{d}</option>
-                    ))}
-                  </select>
+                    options={JAMMU_DISTRICT_OPTIONS}
+                  />
                 </div>
 
                 <div>
                   <label className="label">Area *</label>
-                  <select
-                    className="input"
+                  <CustomDropdown
                     value={editArea}
-                    onChange={e => {
-                      const nextArea = e.target.value
-                      setEditArea(nextArea)
-                      setEditPincode(JAMMU_AREAS[nextArea]?.pincode || '')
+                    onChange={(val) => {
+                      setEditArea(val)
+                      setEditPincode(JAMMU_AREAS[val]?.pincode || '')
                     }}
-                  >
-                    {getAreasForDistrict(editDistrict).map(area => (
-                      <option key={area} value={area}>{area}</option>
-                    ))}
-                  </select>
+                    options={getAreasForDistrict(editDistrict)}
+                  />
                 </div>
               </div>
 
@@ -806,14 +866,45 @@ export function WorkersPage() {
                     </div>
                   </div>
                   <button
-                    onClick={() => {
+                    type="button"
+                    onClick={async () => {
                       const newStatus = editAccountStatus === 'active' ? 'suspended' : 'active'
                       setEditAccountStatus(newStatus)
-                      // Also auto-save it immediately for convenience
-                      supabase.from('users').update({ status: newStatus }).eq('id', editingWorker.id).then(() => {
+                      
+                      const isAvailable = newStatus === 'active'
+                      const storedPhotoUrl = newStatus === 'suspended' 
+                        ? `suspension_reason:${editSuspensionReason.trim() || 'Suspended by Administrator'}` 
+                        : null
+                      
+                      const suspensionExpiryVal = (newStatus === 'suspended' && editSuspensionExpiry) 
+                        ? new Date(editSuspensionExpiry).toISOString() 
+                        : null
+                        
+                      try {
+                        const { error: uErr } = await supabase.from('users').update({ 
+                          status: newStatus,
+                          suspension_expiry: suspensionExpiryVal
+                        }).eq('id', editingWorker.id)
+                        if (uErr) throw uErr
+                        
+                        await supabase.from('profiles').update({ photo_url: storedPhotoUrl }).eq('user_id', editingWorker.id)
+                        await supabase.from('worker_profiles').update({ is_available: isAvailable }).eq('user_id', editingWorker.id)
+                        
+                        if (newStatus === 'suspended') {
+                          const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3002'
+                          fetch(`${apiUrl}/api/admin/revoke-session`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ userId: editingWorker.id })
+                          }).catch(err => console.error('Failed to revoke session:', err))
+                        }
+
                         toast.success(newStatus === 'active' ? 'Worker enabled' : 'Worker suspended')
                         fetchWorkers()
-                      })
+                      } catch (err: any) {
+                        toast.error('Failed to update: ' + err.message)
+                        setEditAccountStatus(editAccountStatus) // revert
+                      }
                     }}
                     className={`btn btn-sm ${editAccountStatus === 'active' ? 'btn-danger' : 'btn-success'}`}
                   >
@@ -822,9 +913,16 @@ export function WorkersPage() {
                 </div>
                 
                 {editAccountStatus === 'suspended' && (
-                  <div>
-                    <label className="label">Suspension Reason (Visible to Worker)</label>
-                    <input className="input" value={editSuspensionReason} onChange={e => setEditSuspensionReason(e.target.value)} placeholder="e.g. Multiple customer complaints" />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    <div>
+                      <label className="label">Suspension Reason (Visible to Worker)</label>
+                      <input className="input" value={editSuspensionReason} onChange={e => setEditSuspensionReason(e.target.value)} placeholder="e.g. Multiple customer complaints" />
+                    </div>
+                    <div>
+                      <label className="label">Suspension Expiry Date & Time</label>
+                      <input type="datetime-local" className="input" value={editSuspensionExpiry} onChange={e => setEditSuspensionExpiry(e.target.value)} />
+                      <div style={{ fontSize: '0.7rem', color: 'var(--gray-500)', marginTop: '0.2rem' }}>Leave blank for indefinite suspension.</div>
+                    </div>
                   </div>
                 )}
 

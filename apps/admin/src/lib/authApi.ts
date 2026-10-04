@@ -19,7 +19,7 @@ export { getApiBaseUrl, API_BASE_URL as AUTH_API_BASE } from '@/lib/config'
 export async function sendOTP(
   identifier: string,
   type: 'email' | 'phone'
-): Promise<{ success: boolean; message?: string; error?: string; expiresIn?: number }> {
+): Promise<{ success: boolean; message?: string; error?: string; expiresIn?: number; reused?: boolean; expiresAt?: number }> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/otp/send`, {
       method: 'POST',
@@ -36,7 +36,7 @@ export async function sendOTP(
       return { success: false, error: data.error || 'Failed to send OTP.' }
     }
 
-    return { success: true, message: data.message, expiresIn: data.expiresIn }
+    return { success: true, message: data.message, expiresIn: data.expiresIn, reused: data.reused, expiresAt: data.expiresAt }
   } catch (err: any) {
     console.error('OTP send error:', err)
     return { success: false, error: 'Auth server unreachable. Please try again later.' }

@@ -37,8 +37,8 @@ const POPULAR_AREAS = [
   'Srinagar',
 ]
 
-export function UserProfileModal() {
-  const { customer, isLoggedIn, showProfileModal, closeProfileModal, updateProfile, logout } = useCustomerAuth()
+export function ProfilePage() {
+  const { customer, isLoggedIn, updateProfile, logout } = useCustomerAuth()
   const toast = useToast()
   const navigate = useNavigate()
 
@@ -62,20 +62,22 @@ export function UserProfileModal() {
       setExperience(customer.experience_years ?? 2)
       setIsAvailable(customer.is_available ?? true)
     }
-  }, [customer, showProfileModal])
+  }, [customer])
 
   const isWorker = customer?.role === 'worker'
   const isAdmin = customer?.role === 'admin' || customer?.role === 'super_admin'
 
+  // Note: Workers and customers can both access this page to update their details
+
   // Admin Toggles State
   const [platformFeatures, setPlatformFeatures] = useState<PlatformFeatures>(DEFAULT_PLATFORM_FEATURES)
   useEffect(() => {
-    if (isAdmin && showProfileModal) {
+    if (isAdmin) {
       fetchPlatformFeatures().then(setPlatformFeatures)
     }
-  }, [isAdmin, showProfileModal])
+  }, [isAdmin])
 
-  if (!isLoggedIn || !showProfileModal || !customer) return null
+  if (!isLoggedIn || !customer) return null
 
   const toggleAdminFeature = async (key: keyof PlatformFeatures, overrideValue?: any) => {
     const newVal = { 
@@ -127,183 +129,166 @@ export function UserProfileModal() {
     setSaving(false)
     if (result.success) {
       toast.success('Your profile details have been updated successfully! ✨')
-      closeProfileModal()
     } else {
       toast.error(result.error || 'Failed to update profile')
     }
   }
 
   const handleLogout = () => {
-    closeProfileModal()
     logout()
     toast.info('You have been logged out.')
   }
 
   const handleViewBookings = () => {
-    closeProfileModal()
-    navigate('/my-bookings')
+    navigate(isWorker ? '/worker/dashboard' : '/customer/bookings')
   }
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        backgroundColor: 'rgba(15, 23, 42, 0.65)',
-        backdropFilter: 'blur(8px)',
-        zIndex: 9999,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '1rem',
-        animation: 'fadeIn 0.2s ease-out',
-      }}
-    >
-      <div
-        style={{
-          background: '#ffffff',
-          borderRadius: '1.25rem',
-          width: '100%',
-          maxWidth: '520px',
-          maxHeight: '92vh',
-          overflowY: 'auto',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-          border: '1px solid rgba(226, 232, 240, 0.8)',
-          position: 'relative',
-        }}
-      >
-        {/* Header Ribbon / Banner */}
-        <div
-          style={{
-            background: isWorker
-              ? 'linear-gradient(135deg, #059669 0%, #10b981 100%)'
-              : 'linear-gradient(135deg, #4f46e5 0%, #6366f1 50%, #8b5cf6 100%)',
-            padding: '1.5rem 1.5rem 2rem',
-            borderTopLeftRadius: '1.25rem',
-            borderTopRightRadius: '1.25rem',
-            color: '#fff',
-            position: 'relative',
-          }}
-        >
-          {/* Close button */}
-          <button
-            type="button"
-            onClick={closeProfileModal}
-            style={{
-              position: 'absolute',
-              top: '1rem',
-              right: '1rem',
-              background: 'rgba(255, 255, 255, 0.2)',
-              border: 'none',
-              borderRadius: '50%',
-              width: '32px',
-              height: '32px',
+    <div style={{ background: '#f8fafc', minHeight: '100vh', paddingTop: '2.5rem', paddingBottom: '4rem' }}>
+      <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '0 1.5rem' }}>
+        
+        {/* Header Row */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '2.5rem' }}>
+          
+          {/* Left: Breadcrumbs */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--gray-500)', fontSize: '0.9rem', fontWeight: 600 }}>
+            <span style={{ cursor: 'pointer', color: 'var(--brand-600)' }} onClick={() => navigate(isWorker ? '/worker/dashboard' : '/customer/dashboard')}>Home</span>
+            <span>/</span>
+            <span style={{ color: 'var(--gray-900)' }}>My Profile</span>
+          </div>
+
+          {/* Right: Account Settings Title */}
+          <div style={{ textAlign: 'right' }}>
+            <h1 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--gray-900)', margin: 0, letterSpacing: '-0.01em' }}>
+              Account Settings
+            </h1>
+            <p style={{ color: 'var(--gray-500)', marginTop: '0.15rem', fontSize: '0.85rem' }}>
+              Manage your personal information and preferences.
+            </p>
+          </div>
+
+        </div>
+
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2rem', alignItems: 'flex-start' }}>
+          
+          {/* Left Column: Profile Card */}
+          <div style={{ 
+            flex: '1 1 320px', 
+            maxWidth: '400px', 
+            background: '#ffffff', 
+            borderRadius: '1.25rem', 
+            boxShadow: '0 10px 40px -10px rgba(0, 0, 0, 0.08)', 
+            border: '1px solid rgba(226, 232, 240, 0.8)', 
+            overflow: 'hidden' 
+          }}>
+            <div style={{
+              background: isWorker
+                ? 'linear-gradient(135deg, #064e3b 0%, #059669 50%, #10b981 100%)'
+                : 'linear-gradient(135deg, #312e81 0%, #4f46e5 50%, #8b5cf6 100%)',
+              padding: '3rem 2rem',
               display: 'flex',
+              flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
               color: '#fff',
-              cursor: 'pointer',
-              transition: 'background 0.2s ease',
-            }}
-            title="Close"
-          >
-            <X size={18} />
-          </button>
-
-          {/* User identity & Role info */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <div
-              style={{
-                width: '64px',
-                height: '64px',
+              textAlign: 'center'
+            }}>
+              <div style={{
+                width: '96px',
+                height: '96px',
                 borderRadius: '50%',
                 background: '#ffffff',
                 color: isWorker ? '#059669' : '#4f46e5',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: '1.65rem',
+                fontSize: '2.5rem',
                 fontWeight: 800,
-                boxShadow: '0 8px 16px rgba(0, 0, 0, 0.15)',
-                border: '3px solid rgba(255, 255, 255, 0.8)',
-                flexShrink: 0,
+                boxShadow: '0 10px 25px rgba(0, 0, 0, 0.2)',
+                border: '4px solid rgba(255, 255, 255, 0.9)',
                 textTransform: 'uppercase',
-              }}
-            >
-              {name ? name[0] : (isWorker ? 'W' : 'C')}
+                marginBottom: '1.25rem'
+              }}>
+                {name ? name[0] : (isWorker ? 'W' : 'C')}
+              </div>
+              <h2 style={{ fontSize: '1.5rem', fontWeight: 800, margin: 0, letterSpacing: '-0.02em', textShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+                {name || 'My Profile'}
+              </h2>
+              <span style={{
+                marginTop: '0.5rem',
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                padding: '0.25rem 0.75rem',
+                borderRadius: '999px',
+                background: 'rgba(255, 255, 255, 0.25)',
+                color: '#fff',
+                border: '1px solid rgba(255, 255, 255, 0.4)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+              }}>
+                {isWorker ? <HardHat size={14} /> : <ShoppingBag size={14} />}
+                {isWorker ? 'Worker Partner' : 'Customer Account'}
+              </span>
             </div>
 
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                <h2 style={{ fontSize: '1.35rem', fontWeight: 800, margin: 0, letterSpacing: '-0.02em' }}>
-                  {name || 'My Profile'}
-                </h2>
-                <span
-                  style={{
-                    fontSize: '0.72rem',
-                    fontWeight: 700,
-                    padding: '0.2rem 0.55rem',
-                    borderRadius: '999px',
-                    background: 'rgba(255, 255, 255, 0.25)',
-                    color: '#fff',
-                    border: '1px solid rgba(255, 255, 255, 0.4)',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '0.25rem',
-                  }}
-                >
-                  {isWorker ? <HardHat size={12} /> : <ShoppingBag size={12} />}
-                  {isWorker ? 'Worker Partner' : 'Customer Account'}
+            <div style={{ padding: '1.5rem 2rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 0', borderBottom: '1px solid var(--gray-100)' }}>
+                <Phone size={16} style={{ color: 'var(--gray-400)' }} />
+                <span style={{ fontSize: '0.9rem', color: 'var(--gray-700)', fontWeight: 600, flex: 1 }}>+91 {customer.phone}</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.2rem', fontSize: '0.7rem', color: '#10b981', background: '#ecfdf5', padding: '0.2rem 0.5rem', borderRadius: '999px', fontWeight: 700 }}>
+                  <CheckCircle2 size={12} /> Verified
+                </span>
+              </div>
+              
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 0', borderBottom: isWorker ? '1px solid var(--gray-100)' : 'none' }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--gray-400)' }}><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+                <span style={{ fontSize: '0.9rem', color: 'var(--gray-700)', fontWeight: 500, flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {customer.email || 'No email added'}
                 </span>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.25rem', fontSize: '0.85rem', opacity: 0.95 }}>
-                <Phone size={13} />
-                <span>+91 {customer.phone}</span>
-                <span
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '0.2rem',
-                    fontSize: '0.7rem',
-                    background: 'rgba(255, 255, 255, 0.2)',
-                    padding: '0.1rem 0.4rem',
-                    borderRadius: '999px',
-                    fontWeight: 600,
-                  }}
-                >
-                  <CheckCircle2 size={11} /> Verified
-                </span>
-              </div>
               {isWorker && (
-                <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.5px', opacity: 0.8, fontWeight: 700 }}>Jobs Accepted</span>
-                    <span style={{ fontSize: '1.1rem', fontWeight: 800 }}>{customer.jobs_accepted || 0}</span>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', paddingTop: '1.25rem', paddingBottom: '0.5rem' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', background: '#f8fafc', padding: '0.75rem', borderRadius: '0.75rem', textAlign: 'center' }}>
+                    <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--gray-500)', fontWeight: 700 }}>Jobs Done</span>
+                    <span style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--brand-600)' }}>{customer.jobs_accepted || 0}</span>
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.5px', opacity: 0.8, fontWeight: 700 }}>Jobs Rejected</span>
-                    <span style={{ fontSize: '1.1rem', fontWeight: 800 }}>{customer.jobs_rejected || 0}</span>
+                  <div style={{ display: 'flex', flexDirection: 'column', background: '#f8fafc', padding: '0.75rem', borderRadius: '0.75rem', textAlign: 'center' }}>
+                    <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--gray-500)', fontWeight: 700 }}>Rejected</span>
+                    <span style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--gray-700)' }}>{customer.jobs_rejected || 0}</span>
                   </div>
                 </div>
               )}
             </div>
           </div>
-        </div>
+
+          {/* Right Column: Edit Form */}
+          <div style={{ 
+            flex: '1 1 500px', 
+            background: '#ffffff', 
+            borderRadius: '1.25rem', 
+            boxShadow: '0 10px 40px -10px rgba(0, 0, 0, 0.08)', 
+            border: '1px solid rgba(226, 232, 240, 0.8)',
+            padding: '2.5rem'
+          }}>
+            <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--gray-900)', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <User size={20} style={{ color: 'var(--brand-600)' }} /> Personal Details
+            </h3>
 
         {/* Profile Edit Form */}
-        <form onSubmit={handleSubmit} style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           {/* Full Name */}
           <div>
             <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--gray-700)', marginBottom: '0.35rem' }}>
               Full Name *
             </label>
             <div style={{ position: 'relative' }}>
-              <User size={16} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--gray-400)' }} />
+              <User size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--gray-400)' }} />
               <input
                 type="text"
                 className="input"
-                style={{ paddingLeft: '2.25rem', fontSize: '0.9rem', width: '100%' }}
+                style={{ paddingLeft: '2.75rem', fontSize: '0.95rem', width: '100%' }}
                 value={name}
                 onChange={e => setName(e.target.value)}
                 placeholder="e.g. Rahul Sharma"
@@ -319,12 +304,12 @@ export function UserProfileModal() {
                 Mobile Number
               </label>
               <div style={{ position: 'relative' }}>
-                <Phone size={15} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--gray-400)' }} />
+                <Phone size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--gray-400)' }} />
                 <input
                   type="tel"
                   className="input"
                   style={{ 
-                    paddingLeft: '2.25rem', fontSize: '0.9rem', width: '100%',
+                    paddingLeft: '2.75rem', fontSize: '0.95rem', width: '100%',
                     backgroundColor: customer?.phone ? '#f1f5f9' : '#fff',
                     color: customer?.phone ? '#64748b' : '#0f172a',
                     cursor: customer?.phone ? 'not-allowed' : 'text'
@@ -345,12 +330,12 @@ export function UserProfileModal() {
                 Email Address
               </label>
               <div style={{ position: 'relative' }}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--gray-400)' }}><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--gray-400)' }}><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
                 <input
                   type="email"
                   className="input"
                   style={{ 
-                    paddingLeft: '2.25rem', fontSize: '0.9rem', width: '100%',
+                    paddingLeft: '2.75rem', fontSize: '0.95rem', width: '100%',
                     backgroundColor: (customer?.email && !customer?.email.includes('@mistriji.local') && customer?.email !== 'hafezzargar987+cu@gmail.com') ? '#f1f5f9' : '#fff',
                     color: (customer?.email && !customer?.email.includes('@mistriji.local') && customer?.email !== 'hafezzargar987+cu@gmail.com') ? '#64748b' : '#0f172a',
                     cursor: (customer?.email && !customer?.email.includes('@mistriji.local') && customer?.email !== 'hafezzargar987+cu@gmail.com') ? 'not-allowed' : 'text'
@@ -365,40 +350,42 @@ export function UserProfileModal() {
             </div>
           </div>
 
-          {/* Area / Locality */}
-          <div>
-            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--gray-700)', marginBottom: '0.35rem' }}>
-              Area / Locality in J&K *
-            </label>
-            <div style={{ position: 'relative', marginBottom: '0.5rem' }}>
-              <MapPin size={16} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--gray-400)' }} />
-              <input
-                type="text"
-                className="input"
-                style={{ paddingLeft: '2.25rem', fontSize: '0.9rem', width: '100%' }}
-                value={area}
-                onChange={e => setArea(e.target.value)}
-                placeholder="e.g. Gandhi Nagar, Janipur, Katra"
-                required
-              />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            {/* Area / Locality */}
+            <div>
+              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--gray-700)', marginBottom: '0.35rem' }}>
+                Area / Locality in J&K *
+              </label>
+              <div style={{ position: 'relative' }}>
+                <MapPin size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--gray-400)' }} />
+                <input
+                  type="text"
+                  className="input"
+                  style={{ paddingLeft: '2.75rem', fontSize: '0.95rem', width: '100%' }}
+                  value={area}
+                  onChange={e => setArea(e.target.value)}
+                  placeholder="e.g. Gandhi Nagar"
+                  required
+                />
+              </div>
             </div>
-          </div>
 
-          {/* City / District */}
-          <div>
-            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--gray-700)', marginBottom: '0.35rem' }}>
-              City / Region
-            </label>
-            <div style={{ position: 'relative' }}>
-              <Building2 size={16} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--gray-400)' }} />
-              <input
-                type="text"
-                className="input"
-                style={{ paddingLeft: '2.25rem', fontSize: '0.9rem', width: '100%' }}
-                value={city}
-                onChange={e => setCity(e.target.value)}
-                placeholder="e.g. Jammu, J&K"
-              />
+            {/* City / District */}
+            <div>
+              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--gray-700)', marginBottom: '0.35rem' }}>
+                City / Region
+              </label>
+              <div style={{ position: 'relative' }}>
+                <Building2 size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--gray-400)' }} />
+                <input
+                  type="text"
+                  className="input"
+                  style={{ paddingLeft: '2.75rem', fontSize: '0.95rem', width: '100%' }}
+                  value={city}
+                  onChange={e => setCity(e.target.value)}
+                  placeholder="e.g. Jammu, J&K"
+                />
+              </div>
             </div>
           </div>
 
@@ -515,68 +502,39 @@ export function UserProfileModal() {
             </div>
           )}
 
-          {/* Save Button */}
-          <button
-            type="submit"
-            disabled={saving}
-            className="btn btn-primary"
-            style={{
-              width: '100%',
-              padding: '0.75rem',
-              fontSize: '0.95rem',
-              fontWeight: 700,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.5rem',
-              borderRadius: '0.75rem',
-              boxShadow: '0 4px 12px rgba(99, 102, 241, 0.25)',
-            }}
-          >
-            {saving ? (
-              <span>Saving Changes...</span>
-            ) : (
-              <>
-                <Save size={16} />
-                <span>Save Profile Changes</span>
-              </>
-            )}
-          </button>
+              {/* Save Button */}
+              <div style={{ borderTop: '1px solid var(--gray-200)', paddingTop: '1.5rem', marginTop: '0.5rem', display: 'flex', justifyContent: 'flex-end' }}>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="btn btn-primary"
+                  style={{
+                    padding: '0.85rem 2rem',
+                    fontSize: '1rem',
+                    fontWeight: 700,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    borderRadius: '0.75rem',
+                    boxShadow: '0 4px 12px rgba(99, 102, 241, 0.25)',
+                    minWidth: '200px',
+                    justifyContent: 'center'
+                  }}
+                >
+                  {saving ? (
+                    <span>Saving...</span>
+                  ) : (
+                    <>
+                      <Save size={18} />
+                      <span>Save Changes</span>
+                    </>
+                  )}
+                </button>
+              </div>
 
-          {/* Quick Nav Items & Logout */}
-          <div
-            style={{
-              borderTop: '1px solid var(--gray-200)',
-              paddingTop: '1rem',
-              marginTop: '0.25rem',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '0.75rem',
-              flexWrap: 'wrap',
-            }}
-          >
-            <button
-              type="button"
-              onClick={handleViewBookings}
-              className="btn btn-sm btn-secondary"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
-            >
-              <Calendar size={14} />
-              <span>My Bookings</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="btn btn-sm btn-secondary"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', color: '#dc2626' }}
-            >
-              <LogOut size={14} />
-              <span>Logout</span>
-            </button>
+            </form>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   )

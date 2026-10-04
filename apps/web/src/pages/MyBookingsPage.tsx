@@ -151,7 +151,7 @@ export function MyBookingsPage() {
 
   // ── WORKER REDIRECT ────────────────────────────────────
   if (isLoggedIn && customer?.role === 'worker') {
-    return <Navigate to="/worker" replace />
+    return <Navigate to="/worker/dashboard" replace />
   }
 
   useEffect(() => {

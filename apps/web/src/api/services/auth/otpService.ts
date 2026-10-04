@@ -16,13 +16,17 @@ export interface OtpSendResult {
   success: boolean
   message?: string
   error?: string
+  isSuspended?: boolean
   expiresIn?: number
+  reused?: boolean
+  expiresAt?: number
 }
 
 export interface OtpVerifyResult {
   success: boolean
   verified?: boolean
   error?: string
+  isSuspended?: boolean
 }
 
 // ─── Functions ────────────────────────────────────────────────────────────────
@@ -37,9 +41,15 @@ export async function sendOTP(
   identifier: string,
   type: 'email' | 'phone'
 ): Promise<OtpSendResult> {
-  const { data, error } = await apiPost<any>(ENDPOINTS.OTP.SEND, { identifier, type })
-  if (error) return { success: false, error }
-  return { success: true, message: data?.message, expiresIn: data?.expiresIn }
+  const { data, error, status } = await apiPost<any>(ENDPOINTS.OTP.SEND, { identifier, type })
+  if (error) return { success: false, error, isSuspended: status === 403 && (data as any)?.code === 'ACCOUNT_SUSPENDED' }
+  return { 
+    success: true, 
+    message: data?.message, 
+    expiresIn: data?.expiresIn,
+    reused: data?.reused,
+    expiresAt: data?.expiresAt 
+  }
 }
 
 /**
@@ -54,8 +64,8 @@ export async function verifyOTP(
   code: string,
   type: 'email' | 'phone'
 ): Promise<OtpVerifyResult> {
-  const { data, error } = await apiPost<any>(ENDPOINTS.OTP.VERIFY, { identifier, code, type })
-  if (error) return { success: false, error }
+  const { data, error, status } = await apiPost<any>(ENDPOINTS.OTP.VERIFY, { identifier, code, type })
+  if (error) return { success: false, error, isSuspended: status === 403 && (data as any)?.code === 'ACCOUNT_SUSPENDED' }
   return { success: true, verified: data?.verified }
 }
 

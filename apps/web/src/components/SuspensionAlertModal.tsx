@@ -9,11 +9,32 @@ export function SuspensionAlertModal() {
 
   useEffect(() => {
     if (suspendedAlert) {
-      toast.error(suspendedAlert)
+      try {
+        const parsed = JSON.parse(suspendedAlert)
+        if (parsed.message) {
+          toast.error(parsed.message)
+        } else {
+          toast.error(suspendedAlert)
+        }
+      } catch {
+        toast.error(suspendedAlert)
+      }
     }
   }, [suspendedAlert])
 
   if (!suspendedAlert) return null
+
+  let alertData = {
+    message: suspendedAlert,
+    supportEmail: 'support@mistriji.in',
+    supportPhone: '+91 9419000000'
+  }
+  try {
+    const parsed = JSON.parse(suspendedAlert)
+    if (parsed.code === 'ACCOUNT_SUSPENDED') {
+      alertData = parsed
+    }
+  } catch {}
 
   return (
     <div
@@ -65,7 +86,7 @@ export function SuspensionAlertModal() {
         </h2>
         
         <p style={{ fontSize: '0.95rem', color: '#4b5563', lineHeight: 1.5, marginBottom: '1.5rem' }}>
-          {suspendedAlert}
+          {alertData.message}
         </p>
 
         <div style={{
@@ -82,8 +103,8 @@ export function SuspensionAlertModal() {
           </div>
           <div style={{ fontSize: '0.8rem', color: '#64748b', lineHeight: 1.5 }}>
             Please contact our support team. We review all suspensions manually.<br/>
-            📞 <a href="tel:+919419000000" style={{ color: 'var(--brand-600)', fontWeight: 600 }}>+91 9419000000</a><br/>
-            ✉️ <a href="mailto:support@mistriji.in" style={{ color: 'var(--brand-600)', fontWeight: 600 }}>support@mistriji.in</a>
+            📞 <a href={`tel:${alertData.supportPhone}`} style={{ color: 'var(--brand-600)', fontWeight: 600 }}>{alertData.supportPhone}</a><br/>
+            ✉️ <a href={`mailto:${alertData.supportEmail}`} style={{ color: 'var(--brand-600)', fontWeight: 600 }}>{alertData.supportEmail}</a>
           </div>
         </div>
 

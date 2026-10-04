@@ -79,6 +79,9 @@ async function sendSmsOTP(phone, otp) {
   }
 
   return new Promise((resolve) => {
+    const timeStr = new Date().toLocaleTimeString()
+    console.log(`[${timeStr}] 🔑 [DEV] Local OTP for ${cleanPhone} | Code: [${otp}]`)
+
     const encodedMessage = encodeURIComponent(`Your MistriJi verification code is ${otp}. Valid for 5 mins.`)
     const options = {
       hostname: 'www.fast2sms.com',
@@ -94,7 +97,8 @@ async function sendSmsOTP(phone, otp) {
         try {
           const result = JSON.parse(data)
           if (result.return === true || result.status_code === 200) {
-            console.log(`📱 OTP SMS sent to ${cleanPhone} | Code: [${otp}]`)
+            const timeStr = new Date().toLocaleTimeString()
+            console.log(`[${timeStr}] 📱 OTP SMS sent to ${cleanPhone} | Code: [${otp}]`)
             resolve({ success: true })
           } else {
             console.error('Fast2SMS send error:', result)

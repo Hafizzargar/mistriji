@@ -6,6 +6,7 @@ import { useToast } from '@/contexts/ToastContext'
 import { logAdminAction } from '@/lib/auditLogger'
 import { DataTable, Column } from '@/components/ui/DataTable'
 import { Plus, Edit3, Trash2, X, RefreshCw, Sparkles, Check, Loader2, UserPlus, ArrowLeft, ShieldCheck, ChevronRight } from 'lucide-react'
+import { BreadcrumbHeader } from '@/components/ui/BreadcrumbHeader'
 import { JAMMU_AREAS, JAMMU_DISTRICT_OPTIONS, getAreasForDistrict } from '@/lib/jammuCoordinates'
 
 interface Customer {
@@ -388,30 +389,13 @@ export function CustomersPage() {
     return (
       <div className="admin-content" style={{ animation: 'fadeIn 0.2s ease', minHeight: '100vh', paddingBottom: '3rem' }}>
         {/* Detail Header */}
-        <div className="page-header" style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: '1.5rem' }}>
-          <button 
-            className="btn btn-secondary"
-            onClick={() => { setEditingCustomer(null); setSearchParams({}); }}
-            style={{ padding: '0.5rem' }}
-          >
-            <ArrowLeft size={18} />
-          </button>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
-              <button 
-                onClick={() => { setEditingCustomer(null); setSearchParams({}); }}
-                style={{ background: 'none', border: 'none', padding: 0, color: '#64748b', cursor: 'pointer', fontSize: '0.875rem', fontWeight: 500 }}
-                className="hover-text"
-              >
-                Customers
-              </button>
-              <ChevronRight size={14} color="#94a3b8" />
-              <span style={{ fontSize: '0.875rem', fontWeight: 500, color: '#0f172a' }}>Profile</span>
-            </div>
-            <h1 className="page-title">{name || 'Customer Profile'}</h1>
-            <p className="page-subtitle">Manage details, history, and status for {name}</p>
-          </div>
-        </div>
+        <BreadcrumbHeader 
+          parentLabel="Customers"
+          currentLabel="Profile"
+          title={name || 'Customer Profile'}
+          subtitle={`Manage details, history, and status for ${name}`}
+          onBack={() => { setEditingCustomer(null); setSearchParams({}); }}
+        />
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: '1.5rem', alignItems: 'start' }}>
           
@@ -498,11 +482,16 @@ export function CustomersPage() {
                   <button
                     type="button"
                     onClick={() => {
-                      const newStatus = status === 'active' ? 'disabled' : 'active'
-                      setStatus(newStatus)
-                      supabase.from('users').update({ status: newStatus }).eq('id', editingCustomer.id).then(() => {
-                        toast.success(newStatus === 'active' ? 'Account enabled' : 'Account disabled')
-                        fetchCustomers()
+                      const newStatus = status === 'active' ? 'suspended' : 'active'
+                      setStatus(newStatus) // Optimistic update
+                      supabase.from('users').update({ status: newStatus }).eq('id', editingCustomer.id).then(({ error }) => {
+                        if (error) {
+                          toast.error('Failed to update status: ' + error.message)
+                          setStatus(status) // Revert optimistic update
+                        } else {
+                          toast.success(newStatus === 'active' ? 'Account enabled' : 'Account disabled')
+                          fetchCustomers()
+                        }
                       })
                     }}
                     className={`btn btn-sm ${status === 'active' ? 'btn-danger' : 'btn-success'}`}
@@ -511,7 +500,7 @@ export function CustomersPage() {
                   </button>
                 </div>
                 
-                {status === 'disabled' && (
+                {status === 'suspended' && (
                   <div>
                     <label className="label">Disable Reason</label>
                     <input className="input" value={suspensionReason} onChange={e => setSuspensionReason(e.target.value)} placeholder="e.g. Violation of terms" />

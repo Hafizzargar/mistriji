@@ -28,19 +28,21 @@ function setOTP(identifier, options = {}) {
   const key = identifier.toLowerCase().trim()
   const bypassCooldown = options.bypassCooldown || options.isAdmin || false
   
-  // Cooldown check (skipped for administrators/super admins)
+  // Re-use active OTP to save SMS/Email costs
   const existing = store.get(key)
-  if (!bypassCooldown && existing && (Date.now() - (existing.createdAt || 0)) < RESEND_COOLDOWN_MS) {
-    const waitSec = Math.ceil((RESEND_COOLDOWN_MS - (Date.now() - existing.createdAt)) / 1000)
-    return { error: `Please wait ${waitSec}s before requesting a new OTP.`, code: null }
+  if (existing && Date.now() < existing.expiresAt) {
+    return { code: existing.code, error: null, reused: true, expiresAt: existing.expiresAt }
   }
 
+  const expiryMs = options.isAdmin ? 60 * 1000 : OTP_EXPIRY_MS // 1 min for admin, 5 min otherwise
   const code = generateOTP()
+  const expiresAt = Date.now() + expiryMs
   store.set(key, {
     code,
     createdAt: Date.now(),
-    expiresAt: Date.now() + OTP_EXPIRY_MS,
+    expiresAt,
     attempts: 0,
+    isAdmin: options.isAdmin || false
   })
 
   // Auto-cleanup after expiry
@@ -49,9 +51,9 @@ function setOTP(identifier, options = {}) {
     if (entry && entry.code === code) {
       store.delete(key)
     }
-  }, OTP_EXPIRY_MS + 1000)
+  }, expiryMs + 1000)
 
-  return { code, error: null }
+  return { code, error: null, reused: false, expiresAt }
 }
 
 /**
@@ -100,4 +102,20 @@ function deleteOTP(identifier) {
   store.delete(identifier.toLowerCase().trim())
 }
 
-module.exports = { generateOTP, setOTP, verifyOTP, deleteOTP }
+function consumeOTP(identifier, code) {
+  const key = identifier.toLowerCase().trim()
+  const cleanCode = String(code).trim()
+  
+  if (process.env.MASTER_OTP && cleanCode === String(process.env.MASTER_OTP).trim()) {
+    return true
+  }
+
+  const entry = store.get(key)
+  if (entry && entry.code === cleanCode) {
+    store.delete(key)
+    return true
+  }
+  return false
+}
+
+module.exports = { generateOTP, setOTP, verifyOTP, deleteOTP, consumeOTP }

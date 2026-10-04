@@ -66,7 +66,7 @@ async function request<T>(
 
     if (!res.ok) {
       const errMsg = (data as any)?.error || `Request failed with status ${res.status}`
-      return { data: null, error: errMsg, status: res.status }
+      return { data: data, error: errMsg, status: res.status }
     }
 
     return { data, error: null, status: res.status }

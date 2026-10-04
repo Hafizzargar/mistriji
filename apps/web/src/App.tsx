@@ -3,40 +3,65 @@ import { BrowserRouter, Routes, Route, useLocation, Navigate } from 'react-route
 import { ToastProvider } from '@/contexts/ToastContext'
 import { CustomerAuthProvider } from '@/contexts/CustomerAuthContext'
 import { CustomerLoginModal } from '@/components/CustomerLoginModal'
+import { WorkerAuthModal } from '@/components/WorkerAuthModal'
 import { TopAnnouncementBanner } from '@/components/TopAnnouncementBanner'
 import { SuspensionAlertModal } from '@/components/SuspensionAlertModal'
 import { Navbar } from '@/components/Navbar'
 import { Footer } from '@/components/Footer'
-import { HomePage } from '@/pages/HomePage'
+
+import { LandingPage } from '@/pages/LandingPage'
+import { CustomerDashboardPage } from '@/pages/CustomerDashboardPage'
 import { MyBookingsPage } from '@/pages/MyBookingsPage'
 import { AdminDispatchPage } from '@/pages/AdminDispatchPage'
 import { WorkerDashboardPage } from '@/pages/WorkerDashboardPage'
 import { NotificationsPage } from '@/pages/NotificationsPage'
+import { ProfilePage } from '@/pages/ProfilePage'
+import { PublicLayout } from '@/layouts/PublicLayout'
+import { CustomerLayout } from '@/layouts/CustomerLayout'
+import { WorkerLayout } from '@/layouts/WorkerLayout'
 
 const STORAGE_KEY = 'mistriji_current_area'
 
 function AppInner({ currentArea, setCurrentArea }: { currentArea: string; setCurrentArea: (a: string) => void }) {
-  const location = useLocation()
-  const isHome = location.pathname === '/'
+  const [isWorkerModalOpen, setIsWorkerModalOpen] = useState(false)
 
+  useEffect(() => {
+    const handleOpenWorkerModal = () => setIsWorkerModalOpen(true)
+    window.addEventListener('open-worker-register', handleOpenWorkerModal)
+    return () => window.removeEventListener('open-worker-register', handleOpenWorkerModal)
+  }, [])
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100dvh' }}>
-      <TopAnnouncementBanner />
-      <Navbar currentArea={currentArea} />
+    <>
       <CustomerLoginModal />
-      <SuspensionAlertModal />
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-        <Routes>
-          <Route path="/" element={<HomePage currentArea={currentArea} onAreaChange={setCurrentArea} />} />
-          <Route path="/my-bookings" element={<MyBookingsPage />} />
-          <Route path="/notifications" element={<NotificationsPage />} />
-          <Route path="/worker" element={<WorkerDashboardPage />} />
-          <Route path="/admin/dispatch" element={<AdminDispatchPage />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </div>
-      {!isHome && <Footer />}
-    </div>
+      <WorkerAuthModal isOpen={isWorkerModalOpen} onClose={() => setIsWorkerModalOpen(false)} /> 
+      <Routes>
+        {/* PUBLIC MARKETING PAGES */}
+        <Route element={<PublicLayout currentArea={currentArea} />}>
+          <Route path="/" element={<LandingPage />} />
+        </Route>
+
+        {/* CUSTOMER APPLICATION */}
+        <Route path="/customer" element={<CustomerLayout currentArea={currentArea} />}>
+          <Route path="dashboard" element={<CustomerDashboardPage currentArea={currentArea} onAreaChange={setCurrentArea} />} />
+          <Route path="bookings" element={<MyBookingsPage />} />
+          <Route path="notifications" element={<NotificationsPage />} />
+          <Route path="profile" element={<ProfilePage />} />
+        </Route>
+
+        {/* WORKER APPLICATION */}
+        <Route path="/worker" element={<WorkerLayout currentArea={currentArea} />}>
+          <Route path="dashboard" element={<WorkerDashboardPage />} />
+          <Route path="notifications" element={<NotificationsPage />} />
+          <Route path="profile" element={<ProfilePage />} />
+        </Route>
+
+        {/* ADMIN/MISC */}
+        <Route path="/admin/dispatch" element={<AdminDispatchPage />} />
+        
+        {/* FALLBACK */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </>
   )
 }
 

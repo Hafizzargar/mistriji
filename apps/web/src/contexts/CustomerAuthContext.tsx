@@ -60,9 +60,6 @@ interface CustomerAuthContextType {
   showRoleModal: boolean
   openRoleModal: () => void
   closeRoleModal: () => void
-  showProfileModal: boolean
-  openProfileModal: () => void
-  closeProfileModal: () => void
   suspendedAlert: string | null
   clearSuspendedAlert: () => void
 }
@@ -74,12 +71,12 @@ const SESSION_KEY = 'mistriji_customer'
 export function CustomerAuthProvider({ children }: { children: React.ReactNode }) {
   const [customer, setCustomer] = useState<CustomerUser | null>(() => {
     try {
-      const stored = sessionStorage.getItem(SESSION_KEY)
+      const stored = localStorage.getItem(SESSION_KEY)
       if (stored) {
         const parsed = JSON.parse(stored)
         // Legacy support: if session is a guest, ignore it and force login
         if (parsed?.id?.startsWith('guest-')) {
-          sessionStorage.removeItem(SESSION_KEY)
+          localStorage.removeItem(SESSION_KEY)
           return null
         }
         return parsed
@@ -91,7 +88,6 @@ export function CustomerAuthProvider({ children }: { children: React.ReactNode }
   })
   const [showLoginModal, setShowLoginModal]     = useState(false)
   const [showRoleModal, setShowRoleModal]       = useState(false)
-  const [showProfileModal, setShowProfileModal] = useState(false)
   const [suspendedAlert, setSuspendedAlert]     = useState<string | null>(null)
 
   const isLoggedIn = !!customer
@@ -125,13 +121,16 @@ export function CustomerAuthProvider({ children }: { children: React.ReactNode }
 
   const logout = useCallback((customMessage?: string) => {
     setCustomer(null)
-    sessionStorage.removeItem(SESSION_KEY)
-    setShowProfileModal(false)
+    localStorage.removeItem(SESSION_KEY)
     if (customMessage) {
       setSuspendedAlert(customMessage)
+      // We do not reload or manually redirect here. 
+      // setCustomer(null) above causes isLoggedIn to become false,
+      // which triggers <Navigate to="/" replace /> in WorkerLayout/CustomerLayout.
+    } else {
+      // Always redirect to the main page on normal logout
+      window.location.href = '/'
     }
-    // Always redirect to the main page on logout
-    window.location.href = '/'
   }, [])
 
   const clearSuspendedAlert = useCallback(() => setSuspendedAlert(null), [])
@@ -156,13 +155,23 @@ export function CustomerAuthProvider({ children }: { children: React.ReactNode }
 
       const userData: any = data
 
-      // REAL-TIME AUTO-LOGOUT IF SUSPENDED BY ADMIN
-      if (userData.status === 'suspended' || userData.status === 'disabled') {
+      // REAL-TIME AUTO-LOGOUT IF SUSPENDED/DISABLED/DEACTIVATED BY ADMIN
+      // Super Admin is NEVER suspended — always exempt
+      const isSuperAdmin = userData.role === 'super_admin'
+      const BLOCKED_RT_STATUSES = new Set(['suspended', 'disabled', 'deactivated'])
+      if (!isSuperAdmin && BLOCKED_RT_STATUSES.has((userData.status || '').toLowerCase())) {
         const photo = (userData.profiles as any)?.photo_url
         const reason = photo && photo.startsWith('suspension_reason:')
           ? photo.replace('suspension_reason:', '')
           : 'Account suspended by administration.'
-        logout(`⛔ Your account has been suspended by administration. Reason: "${reason}". Please connect with MistriJi Support (+91 9419000000 / support@mistriji.in).`)
+
+        logout(JSON.stringify({
+          success: false,
+          code: 'ACCOUNT_SUSPENDED',
+          message: `Your account has been suspended. Reason: "${reason}"`,
+          supportEmail: 'support@mistriji.in',
+          supportPhone: '+91 9419000000'
+        }))
         return
       }
 
@@ -187,7 +196,7 @@ export function CustomerAuthProvider({ children }: { children: React.ReactNode }
           is_available: wrk.is_available,
           verification_status: wrk.verification_status,
         }
-        sessionStorage.setItem(SESSION_KEY, JSON.stringify(updated))
+        localStorage.setItem(SESSION_KEY, JSON.stringify(updated))
         return updated
       })
     } catch (err) {
@@ -220,9 +229,16 @@ export function CustomerAuthProvider({ children }: { children: React.ReactNode }
       }
       document.addEventListener('visibilitychange', handleVisibilityChange)
 
+      // 4. Polling fallback (in case Supabase Realtime is not enabled)
+      // 60 seconds is sufficient — Realtime handles instant kicks; this is just a safety net
+      const pollInterval = setInterval(() => {
+        refreshProfile(currentId)
+      }, 60_000)
+
       return () => {
         supabase.removeChannel(channel)
         document.removeEventListener('visibilitychange', handleVisibilityChange)
+        clearInterval(pollInterval)
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -286,7 +302,8 @@ export function CustomerAuthProvider({ children }: { children: React.ReactNode }
       const profileName = (user.profiles as any)?.name || ''
       return { exists: true, isSuperAdmin: false, isSuspended: false, name: profileName, role: user.role }
     } catch (err) {
-      return { exists: false }
+      // Fail closed — if we can't verify status, don't allow login
+      return { exists: true, isSuspended: true, suspensionReason: 'Unable to verify account status. Please try again.' }
     }
   }, [])
 
@@ -316,14 +333,19 @@ export function CustomerAuthProvider({ children }: { children: React.ReactNode }
       query = query.or(`phone.eq.${cleanPhone},phone.eq.+91${cleanPhone},phone.ilike.%${cleanPhone}%`)
     }
 
-    const { data: usersList } = await query
+    const { data: usersList, error: queryError } = await query
+
+    // Fail-closed: if query fails, NEVER create an account or grant access
+    if (queryError) {
+      console.error('[CustomerAuth] DB query error in login:', queryError.message)
+      return { ok: false, error: 'Unable to verify account status. Please try again.' }
+    }
 
     const existing = usersList?.find((u: any) => u.role === 'super_admin' || u.role === 'admin') ||
                      usersList?.find((u: any) => u.role === 'customer') ||
                      usersList?.[0]
 
     // Security Check: Block Super Admin / Admin from logging in via Customer App
-    // We do this AFTER OTP verification, so attackers can't use this to fish for admin emails.
     const ADMIN_ROLES = ['super_admin', 'admin']
     if (existing && ADMIN_ROLES.includes(existing.role)) {
       console.warn('[CustomerAuth] Blocked admin login attempt via customer portal:', identifier)
@@ -332,8 +354,9 @@ export function CustomerAuthProvider({ children }: { children: React.ReactNode }
         error: '🔐 This account belongs to an Administrator. Please use the Admin Portal.',
       }
     }
-    // Security Check: Block Suspended users with reason & support message
-    if (existing && (existing.status === 'suspended' || existing.status === 'disabled')) {
+    // Security Check: Block Suspended/Disabled/Deactivated users — all statuses in one set
+    const BLOCKED_STATUSES = new Set(['suspended', 'disabled', 'deactivated'])
+    if (existing && BLOCKED_STATUSES.has((existing.status || '').toLowerCase())) {
       const photo = (existing.profiles as any)?.photo_url
       const reason = photo && photo.startsWith('suspension_reason:')
         ? photo.replace('suspension_reason:', '')
@@ -402,7 +425,7 @@ export function CustomerAuthProvider({ children }: { children: React.ReactNode }
       city: resolvedCity,
     }
     setCustomer(user)
-    sessionStorage.setItem(SESSION_KEY, JSON.stringify(user))
+    localStorage.setItem(SESSION_KEY, JSON.stringify(user))
     setShowLoginModal(false)
     return { ok: true, isNewUser: !existing }
   }, [])
@@ -477,7 +500,7 @@ export function CustomerAuthProvider({ children }: { children: React.ReactNode }
       }
 
       setCustomer(updatedUser)
-      sessionStorage.setItem(SESSION_KEY, JSON.stringify(updatedUser))
+      localStorage.setItem(SESSION_KEY, JSON.stringify(updatedUser))
 
       return { success: true }
     } catch (err: any) {
@@ -489,8 +512,7 @@ export function CustomerAuthProvider({ children }: { children: React.ReactNode }
   const openLoginModal = useCallback(() => setShowLoginModal(true), [])
   const closeLoginModal = useCallback(() => setShowLoginModal(false), [])
 
-  const openProfileModal = useCallback(() => setShowProfileModal(true), [])
-  const closeProfileModal = useCallback(() => setShowProfileModal(false), [])
+
 
   return (
     <CustomerAuthContext.Provider value={{
@@ -507,9 +529,6 @@ export function CustomerAuthProvider({ children }: { children: React.ReactNode }
       showRoleModal,
       openRoleModal: () => setShowRoleModal(true),
       closeRoleModal: () => setShowRoleModal(false),
-      showProfileModal,
-      openProfileModal,
-      closeProfileModal,
       suspendedAlert,
       clearSuspendedAlert,
     }}>
