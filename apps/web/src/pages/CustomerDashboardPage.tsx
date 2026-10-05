@@ -95,14 +95,8 @@ export function CustomerDashboardPage({ currentArea, onAreaChange }: { currentAr
     }
   }, [])
 
-  useEffect(() => {
-    if (allowedDistricts.length > 0) {
-      const district = (JAMMU_AREAS[currentArea] as any)?.district || currentArea
-      if (!allowedDistricts.includes(currentArea) && !allowedDistricts.includes(district)) {
-        onAreaChange(allowedDistricts[0])
-      }
-    }
-  }, [allowedDistricts, currentArea])
+  // REMOVED BAD EFFECT: The automatic fallback effect (`onAreaChange(allowedDistricts[0])`)
+  // has been fully removed here to prevent silent resets to Doda when an area string didn't exactly match a district array.
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -708,12 +702,18 @@ export function CustomerDashboardPage({ currentArea, onAreaChange }: { currentAr
                         </div>
                       </div>
                       <div>
-                        <label style={{ display:'block', color:'rgba(255,255,255,0.5)', fontSize:'0.75rem', fontWeight:700, marginBottom:'0.375rem', textTransform:'uppercase', letterSpacing:'0.4px' }}>Address <span style={{ fontWeight:400, textTransform:'none', opacity:0.6 }}>(optional)</span></label>
-                        <input className="hp-input" placeholder="House no., lane, landmark…" value={address} onChange={e => setAddress(e.target.value)} />
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom:'0.375rem' }}>
+                          <label style={{ color:'rgba(255,255,255,0.5)', fontSize:'0.75rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.4px' }}>Address <span style={{ fontWeight:400, textTransform:'none', opacity:0.6 }}>(optional)</span></label>
+                          <span style={{ fontSize: '0.65rem', color: address.length > 45 ? '#f87171' : 'rgba(255,255,255,0.3)', fontWeight: 600 }}>{address.length} / 50</span>
+                        </div>
+                        <input className="hp-input" placeholder="House no., lane, landmark…" maxLength={50} value={address} onChange={e => setAddress(e.target.value)} />
                       </div>
                       <div>
-                        <label style={{ display:'block', color:'rgba(255,255,255,0.5)', fontSize:'0.75rem', fontWeight:700, marginBottom:'0.375rem', textTransform:'uppercase', letterSpacing:'0.4px' }}>Describe the problem <span style={{ fontWeight:400, textTransform:'none', opacity:0.6 }}>(optional)</span></label>
-                        <textarea className="hp-input" placeholder="E.g. Leaking pipe in the kitchen..." value={description} onChange={e => setDescription(e.target.value)} style={{ height: '80px', paddingTop: '0.625rem', resize: 'none' }} />
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom:'0.375rem' }}>
+                          <label style={{ color:'rgba(255,255,255,0.5)', fontSize:'0.75rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.4px' }}>Describe the problem <span style={{ fontWeight:400, textTransform:'none', opacity:0.6 }}>(optional)</span></label>
+                          <span style={{ fontSize: '0.65rem', color: description.length > 180 ? '#f87171' : 'rgba(255,255,255,0.3)', fontWeight: 600 }}>{description.length} / 200</span>
+                        </div>
+                        <textarea className="hp-input" placeholder="E.g. Leaking pipe in the kitchen..." maxLength={200} value={description} onChange={e => setDescription(e.target.value)} style={{ height: '80px', paddingTop: '0.625rem', resize: 'none' }} />
                       </div>
                     </div>
                     <form onSubmit={handleSubmit} style={{ display:'flex', flexDirection:'column', gap:'0.625rem' }}>

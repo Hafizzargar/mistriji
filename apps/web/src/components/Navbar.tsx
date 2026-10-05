@@ -86,12 +86,18 @@ export function Navbar({ currentArea }: { currentArea: string }) {
     toast.info('You have been logged out successfully.')
   }
 
+  const homePath = isLoggedIn
+    ? customer?.role === 'worker'
+      ? '/worker/dashboard'
+      : '/customer/dashboard'
+    : '/'
+
   return (
     <>
       <header className="navbar-header">
         <div className="navbar-container">
           {/* Brand Logo */}
-          <Link to="/" className="navbar-brand">
+          <Link to={homePath} className="navbar-brand">
             <div className="navbar-logo-icon">
               <Wrench size={18} />
             </div>
