@@ -211,7 +211,7 @@ export function WorkersPage() {
     if (nextFilter === 'disabled') query = query.or('status.eq.suspended,status.eq.disabled')
 
     if (search) {
-      const q = search.trim()
+      const q = search.trim().replace(/[^a-zA-Z0-9@.\-_+\s]/g, '') // Sanitize input
       const { data: profileMatches } = await supabase.from('profiles').select('user_id').ilike('name', `%${q}%`)
       const profileIds = (profileMatches || []).map(p => p.user_id)
       const idFilter = profileIds.length > 0 ? `id.in.(${profileIds.map(id => `"${id}"`).join(',')}),` : ''

@@ -314,10 +314,11 @@ export function SupportInboxPage() {
       return
     }
     setSearchingUsers(true)
+    const cleanQ = q.replace(/[^a-zA-Z0-9@.\-_+]/g, '') // Sanitize input
     const { data } = await supabase
       .from('users')
       .select('id, phone, email, role, profiles(name, area)')
-      .or(`phone.ilike.%${q}%,email.ilike.%${q}%`)
+      .or(`phone.ilike.%${cleanQ}%,email.ilike.%${cleanQ}%`)
       .limit(8)
 
     setUserResults(data || [])
@@ -582,10 +583,11 @@ export function SupportInboxPage() {
       return
     }
     setSearchingNewChatUsers(true)
+    const cleanQ = q.replace(/[^a-zA-Z0-9@.\-_+]/g, '') // Sanitize input
     const { data } = await supabase
       .from('users')
       .select('id, phone, email, role, profiles(name, area)')
-      .or(`phone.ilike.%${q}%,email.ilike.%${q}%`)
+      .or(`phone.ilike.%${cleanQ}%,email.ilike.%${cleanQ}%`)
       .limit(8)
 
     setNewChatResults(data || [])
