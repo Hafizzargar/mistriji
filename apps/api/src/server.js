@@ -295,8 +295,18 @@ app.post('/api/otp/send', otpRateLimitMiddleware, async (req, res) => {
   // Check if account exists and block if suspended
   const accountUser = await getAccountStatus(identifier)
 
+  // 1. Cross-Portal Prevention: Admin accounts CANNOT use the Customer/Worker portal
+  if (!isAdminPortal && accountUser && (accountUser.role === 'admin' || accountUser.role === 'super_admin')) {
+    console.log(`   ⛔ OTP BLOCKED — Admin attempted login via Customer/Worker portal: ${identifier}`)
+    return res.status(403).json({
+      success: false,
+      code: 'ADMIN_PORTAL_REQUIRED',
+      error: 'Administrator accounts must use the secure Admin Portal.'
+    })
+  }
+
   if (!isAdmin && !isAdminPortal) {
-    // 1. Enforce Login Flow: Unknown users cannot receive an OTP
+    // 2. Enforce Login Flow: Unknown users cannot receive an OTP
     if (!accountUser) {
       return res.status(404).json({
         success: false,
@@ -305,9 +315,8 @@ app.post('/api/otp/send', otpRateLimitMiddleware, async (req, res) => {
       })
     }
 
-    // 2. Block Suspended Accounts
-    const isSuperAdmin = accountUser?.role === 'super_admin'
-    if (!isSuperAdmin && accountUser && BLOCKED_ACCOUNT_STATUSES.has((accountUser.status || '').toLowerCase())) {
+    // 3. Block Suspended Accounts
+    if (accountUser && BLOCKED_ACCOUNT_STATUSES.has((accountUser.status || '').toLowerCase())) {
       console.log(`   ⛔ OTP BLOCKED — Account suspended: ${identifier} (status=${accountUser.status})`)
       return res.status(403).json({
         success: false,
@@ -650,10 +659,21 @@ app.post('/api/admin/send-welcome', async (req, res) => {
 
 // ─── Resend OTP ───────────────────────────────────────────
 app.post('/api/otp/resend', otpRateLimitMiddleware, async (req, res) => {
-  const { identifier, type } = req.body
+  const { identifier, type, role } = req.body
+  const isAdminPortal = req.headers['x-admin-portal'] === 'true' || role === 'admin'
 
   if (!identifier || !type) {
     return res.status(400).json({ error: 'Missing identifier or type.' })
+  }
+
+  // ── SECURITY GATE: Cross-Portal Prevention ──
+  const accountUser = await getAccountStatus(identifier)
+  if (!isAdminPortal && accountUser && (accountUser.role === 'admin' || accountUser.role === 'super_admin')) {
+    return res.status(403).json({
+      success: false,
+      code: 'ADMIN_PORTAL_REQUIRED',
+      error: 'Administrator accounts must use the secure Admin Portal.'
+    })
   }
 
   // Generate a new OTP using our internal store
