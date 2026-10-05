@@ -64,11 +64,6 @@ function verifyOTP(identifier, code, keepAlive = false) {
   const key = identifier.toLowerCase().trim()
   const cleanCode = String(code).trim()
 
-  // Backend Master OTP check (for dev/testing if MASTER_OTP env variable is set)
-  if (process.env.MASTER_OTP && cleanCode === String(process.env.MASTER_OTP).trim()) {
-    return { valid: true }
-  }
-
   const entry = store.get(key)
 
   if (!entry) {
@@ -105,10 +100,6 @@ function deleteOTP(identifier) {
 function consumeOTP(identifier, code) {
   const key = identifier.toLowerCase().trim()
   const cleanCode = String(code).trim()
-  
-  if (process.env.MASTER_OTP && cleanCode === String(process.env.MASTER_OTP).trim()) {
-    return true
-  }
 
   const entry = store.get(key)
   if (entry && entry.code === cleanCode) {

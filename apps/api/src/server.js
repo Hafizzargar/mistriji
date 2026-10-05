@@ -291,10 +291,21 @@ app.post('/api/otp/send', otpRateLimitMiddleware, async (req, res) => {
     })
   }
 
-  // ── SECURITY GATE: Block suspended/disabled/deactivated accounts ──
-  // Super Admin is always exempt from this check
+  // ── SECURITY GATE: Strict Account Verification ──
+  // Check if account exists and block if suspended
+  const accountUser = await getAccountStatus(identifier)
+
   if (!isAdmin && !isAdminPortal) {
-    const accountUser = await getAccountStatus(identifier)
+    // 1. Enforce Login Flow: Unknown users cannot receive an OTP
+    if (!accountUser) {
+      return res.status(404).json({
+        success: false,
+        code: 'ACCOUNT_NOT_FOUND',
+        error: 'No account exists with this email or mobile number. Please register first.'
+      })
+    }
+
+    // 2. Block Suspended Accounts
     const isSuperAdmin = accountUser?.role === 'super_admin'
     if (!isSuperAdmin && accountUser && BLOCKED_ACCOUNT_STATUSES.has((accountUser.status || '').toLowerCase())) {
       console.log(`   ⛔ OTP BLOCKED — Account suspended: ${identifier} (status=${accountUser.status})`)
@@ -440,7 +451,8 @@ app.post('/api/otp/verify-pin', otpRateLimitMiddleware, async (req, res) => {
       if (userRes.ok) {
         const users = await userRes.json()
         const dbUser = users[0]
-        if (dbUser && dbUser.pin_hash && dbUser.pin_hash !== pin && pin !== '123456') {
+        // ── SECURITY GATE: Remove static PIN bypass ──
+        if (dbUser && dbUser.pin_hash && dbUser.pin_hash !== pin) {
            return res.status(401).json({ error: 'Incorrect PIN.' })
         }
       }

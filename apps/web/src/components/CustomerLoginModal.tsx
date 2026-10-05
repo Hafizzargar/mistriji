@@ -196,11 +196,12 @@ export function CustomerLoginModal() {
     
     // If we know they don't exist and we are on the first step, ask for name first
     if (!userStatus.exists && step === 'identifier') {
+      toast.error('No account exists with this mobile number. Please register.')
       setStep('register_details')
       return
     }
 
-    if (step === 'register_details' && !name.trim()) { toast.error('Please enter your full name.'); return }
+    if (step === 'register_details' && !name.trim()) { toast.error('Please enter your full name to register.'); return }
 
     setSending(true)
     const cleanId = isEmail ? identifier : identifier.replace(/\D/g, '').slice(-10)
