@@ -79,7 +79,7 @@ function isLoopbackIp(ip) {
 async function isSuperAdminOrAdmin(identifier, req = null, returnFullUser = false) {
   if (!identifier) return returnFullUser ? null : false
   const cleanId = String(identifier).trim().toLowerCase()
-  const cleanPhone = String(identifier).replace(/\D/g, '').slice(-10)
+  const cleanPhone = String(identifier).replace(/\D/g, '')
 
   const adminEmail = (process.env.ADMIN_EMAIL || 'hafezzargar987@gmail.com').toLowerCase()
   const adminPhone = (process.env.ADMIN_PHONE || '6005950197').replace(/\D/g, '').slice(-10)
@@ -94,11 +94,11 @@ async function isSuperAdminOrAdmin(identifier, req = null, returnFullUser = fals
     try {
       let filter = ''
       if (cleanId.includes('@')) {
-        filter = `email=ilike.${encodeURIComponent(cleanId)}`
+        filter = `email=eq.${encodeURIComponent(cleanId)}`
       } else if (cleanPhone.length === 10) {
-        filter = `phone=ilike.*${cleanPhone}*`
+        filter = `phone=in.(${cleanPhone},%2B91${cleanPhone})`
       } else {
-        filter = `or=(email.ilike.${encodeURIComponent(cleanId)},phone.ilike.*${cleanPhone}*)`
+        return returnFullUser ? null : false
       }
       const url = `${process.env.SUPABASE_URL}/rest/v1/users?select=id,role,status&${filter}&limit=5`
       const res = await fetch(url, {
@@ -137,14 +137,15 @@ async function getAccountStatus(identifier) {
     }
   }
 
-  const cleanPhone = String(identifier).replace(/\D/g, '').slice(-10)
+  const cleanPhone = String(identifier).replace(/\D/g, '')
   
   let filter = ''
   if (cleanId.includes('@')) {
-    filter = `email=ilike.${encodeURIComponent(cleanId)}`
+    filter = `email=eq.${encodeURIComponent(cleanId)}`
   } else if (cleanPhone.length === 10) {
-    filter = `or=(phone.eq.${cleanPhone},phone.eq.+91${cleanPhone},phone.ilike.*${cleanPhone}*)`
+    filter = `phone=in.(${cleanPhone},%2B91${cleanPhone})`
   } else {
+    // Strict block: if phone is not exactly 10 digits after stripping, reject it
     return null
   }
 
@@ -348,10 +349,11 @@ app.post('/api/otp/send', otpRateLimitMiddleware, async (req, res) => {
     return res.json({ success: true, reused, message: reused ? 'OTP already sent.' : `OTP sent to ${masked}`, expiresAt })
 
   } else if (type === 'phone') {
-    const cleanPhone = identifier.replace(/\D/g, '').slice(-10)
-    if (cleanPhone.length !== 10) {
+    const rawDigits = identifier.replace(/\D/g, '')
+    if (rawDigits.length !== 10) {
       return res.status(400).json({ error: 'Enter a valid 10-digit mobile number.' })
     }
+    const cleanPhone = rawDigits
 
     // Generate our own OTP for SMS (managed via otpStore)
     const { code, error: otpError, reused, expiresAt } = setOTP(identifier, { isAdmin })
@@ -402,8 +404,17 @@ app.post('/api/otp/verify', otpRateLimitMiddleware, async (req, res) => {
 
   // ── SECURITY GATE: Block suspended/disabled/deactivated accounts at verify ──
   // Super Admin is always exempt from this check
+  const accountUser = await getAccountStatus(identifier)
+
+  if (!isAdminPortal && accountUser && (accountUser.role === 'admin' || accountUser.role === 'super_admin')) {
+    return res.status(403).json({
+      success: false,
+      code: 'ADMIN_PORTAL_REQUIRED',
+      error: 'Administrator accounts must use the secure Admin Portal.'
+    })
+  }
+
   if (!isAdminPortal) {
-    const accountUser = await getAccountStatus(identifier)
     const isSuperAdmin = accountUser?.role === 'super_admin'
     if (!isSuperAdmin && accountUser && BLOCKED_ACCOUNT_STATUSES.has((accountUser.status || '').toLowerCase())) {
       console.log(`   ⛔ OTP VERIFY BLOCKED — Account suspended: ${identifier} (status=${accountUser.status})`)
