@@ -115,9 +115,9 @@ export function NotificationBell() {
 
     if (notif.type === 'job_update' || notif.type === 'booking_alert') {
       if (customer?.role === 'worker') {
-        navigate('/worker')
+        navigate('/worker/dashboard')
       } else {
-        navigate('/my-bookings')
+        navigate('/customer/bookings')
       }
     } else if (notif.type === 'chat_message') {
       window.dispatchEvent(new CustomEvent('open-support-chat'))
@@ -299,7 +299,11 @@ export function NotificationBell() {
             <button
               onClick={() => {
                 setIsOpen(false)
-                navigate('/notifications')
+                if (customer?.role === 'worker') {
+                  navigate('/worker/notifications')
+                } else {
+                  navigate('/customer/notifications')
+                }
               }}
               style={{
                 background: 'transparent',

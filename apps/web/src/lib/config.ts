@@ -15,10 +15,21 @@ export function getApiBaseUrl(): string {
   if (import.meta.env.VITE_API_URL) {
     return import.meta.env.VITE_API_URL
   }
+  // If running inside Capacitor mobile app or production, use production Render backend
+  if (
+    typeof window !== 'undefined' &&
+    (window.location.protocol === 'capacitor:' ||
+     window.location.protocol === 'file:' ||
+     window.location.hostname === 'localhost' ||
+     window.location.hostname === '127.0.0.1' ||
+     (window as any).Capacitor !== undefined)
+  ) {
+    return 'https://mistriji.onrender.com'
+  }
   if (typeof window !== 'undefined' && window.location.hostname) {
     return `http://${window.location.hostname}:3002`
   }
-  return 'http://localhost:3002'
+  return 'https://mistriji.onrender.com'
 }
 
 /** Pre-resolved API base URL (use this in service files) */

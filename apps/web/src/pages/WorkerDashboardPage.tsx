@@ -304,22 +304,17 @@ export function WorkerDashboardPage() {
            reference_id: jobId
          })
          
-         // Customer relies on in-app bell notification
-         // Admin Email Notification
+         // Admin Notification
          const skillName = job.skills?.name || 'a service'
          
          const host = window.location.hostname
          const adminPort = '3001'
          const adminUrl = `${window.location.protocol}//${host}:${adminPort}/jobs`
 
-         fetch('http://localhost:3002/api/notify/admin', {
-           method: 'POST',
-           headers: { 'Content-Type': 'application/json' },
-           body: JSON.stringify({ 
-             message: `MistriJi: Worker ${customer?.name || 'Worker'} accepted ${skillName} in ${job.area}.`,
-             link: adminUrl
-           })
-         }).catch(() => {})
+         notifyAdmin({
+           message: `MistriJi: Worker ${customer?.name || 'Worker'} accepted ${skillName} in ${job.area}.`,
+           link: adminUrl
+         })
          
          // Notify Admin via in-app notifications
          try {

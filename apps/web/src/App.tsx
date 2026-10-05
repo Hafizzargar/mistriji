@@ -19,6 +19,7 @@ import { ProfilePage } from '@/pages/ProfilePage'
 import { PublicLayout } from '@/layouts/PublicLayout'
 import { CustomerLayout } from '@/layouts/CustomerLayout'
 import { WorkerLayout } from '@/layouts/WorkerLayout'
+import { API_BASE_URL } from '@/lib/config'
 
 const STORAGE_KEY = 'mistriji_current_area'
 
@@ -42,6 +43,7 @@ function AppInner({ currentArea, setCurrentArea }: { currentArea: string; setCur
 
         {/* CUSTOMER APPLICATION */}
         <Route path="/customer" element={<CustomerLayout currentArea={currentArea} />}>
+          <Route index element={<Navigate to="/customer/dashboard" replace />} />
           <Route path="dashboard" element={<CustomerDashboardPage currentArea={currentArea} onAreaChange={setCurrentArea} />} />
           <Route path="bookings" element={<MyBookingsPage />} />
           <Route path="notifications" element={<NotificationsPage />} />
@@ -50,10 +52,15 @@ function AppInner({ currentArea, setCurrentArea }: { currentArea: string; setCur
 
         {/* WORKER APPLICATION */}
         <Route path="/worker" element={<WorkerLayout currentArea={currentArea} />}>
+          <Route index element={<Navigate to="/worker/dashboard" replace />} />
           <Route path="dashboard" element={<WorkerDashboardPage />} />
           <Route path="notifications" element={<NotificationsPage />} />
           <Route path="profile" element={<ProfilePage />} />
         </Route>
+
+        {/* ALIASES */}
+        <Route path="/notifications" element={<Navigate to="/customer/notifications" replace />} />
+        <Route path="/my-bookings" element={<Navigate to="/customer/bookings" replace />} />
 
         {/* ADMIN/MISC */}
         <Route path="/admin/dispatch" element={<AdminDispatchPage />} />
@@ -68,12 +75,22 @@ function AppInner({ currentArea, setCurrentArea }: { currentArea: string; setCur
 export function App() {
   const [currentArea, setCurrentArea] = useState(() => {
     if (typeof window === 'undefined') return 'Gandhi Nagar'
-    return localStorage.getItem(STORAGE_KEY) || 'Gandhi Nagar'
+    const stored = localStorage.getItem(STORAGE_KEY)
+    if (!stored || stored === 'Doda') {
+      localStorage.setItem(STORAGE_KEY, 'Gandhi Nagar')
+      return 'Gandhi Nagar'
+    }
+    return stored
   })
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, currentArea)
   }, [currentArea])
+
+  useEffect(() => {
+    // Wake up Render backend on app launch to prevent free-tier cold start delays
+    fetch(`${API_BASE_URL}/api/health`).catch(() => {})
+  }, [])
 
   return (
     <ToastProvider>

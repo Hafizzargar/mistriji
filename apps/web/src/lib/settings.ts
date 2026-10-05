@@ -102,21 +102,45 @@ export const DEFAULT_FOOTER_SETTINGS: FooterSettings = {
   appStoreUrl: ''
 }
 
+export const DEFAULT_LOCATION_CATALOG: LocationCatalogEntry[] = [
+  { district: 'Jammu', areas: ['Gandhi Nagar','Trikuta Nagar','Satwari','Bakshi Nagar','Janipur','Channi Himmat','Jewel Chowk','Talab Tillo','Digiana','Bari Brahmana','RS Pura','Nagrota'] },
+  { district: 'Samba', areas: ['Samba'] },
+  { district: 'Kathua', areas: ['Kathua'] },
+  { district: 'Udhampur', areas: ['Udhampur'] },
+  { district: 'Reasi', areas: ['Katra','Reasi'] },
+  { district: 'Rajouri', areas: ['Rajouri'] },
+  { district: 'Poonch', areas: ['Poonch'] },
+  { district: 'Doda', areas: ['Doda','Bhaderwah','Kishtwar'] },
+  { district: 'Ramban', areas: ['Ramban','Banihal'] },
+  { district: 'Srinagar', areas: ['Srinagar','Hazratbal (Srinagar)'] },
+  { district: 'Anantnag', areas: ['Anantnag','Pahalgam'] },
+  { district: 'Baramulla', areas: ['Baramulla','Gulmarg'] },
+  { district: 'Pulwama', areas: ['Pulwama'] },
+  { district: 'Shopian', areas: ['Shopian'] },
+  { district: 'Budgam', areas: ['Budgam'] },
+  { district: 'Ganderbal', areas: ['Ganderbal'] },
+  { district: 'Kulgam', areas: ['Kulgam'] },
+  { district: 'Kupwara', areas: ['Kupwara'] },
+  { district: 'Bandipora', areas: ['Bandipora'] },
+]
+
 export function normalizeLocationCatalog(value: any): LocationCatalogEntry[] {
-  if (!value) return []
+  if (!value) return DEFAULT_LOCATION_CATALOG
   if (Array.isArray(value)) {
-    return value.filter(Boolean).map((entry: any) => ({
+    const list = value.filter(Boolean).map((entry: any) => ({
       district: String(entry?.district || '').trim(),
       areas: Array.isArray(entry?.areas) ? entry.areas.filter(Boolean).map(String) : []
     })).filter(entry => entry.district && entry.areas.length > 0)
+    return list.length > 0 ? list : DEFAULT_LOCATION_CATALOG
   }
   if (typeof value === 'object') {
-    return Object.entries(value).map(([district, areas]) => ({
+    const list = Object.entries(value).map(([district, areas]) => ({
       district,
       areas: Array.isArray(areas) ? areas.filter(Boolean).map(String) : String(areas || '').split(',').map(item => item.trim()).filter(Boolean)
     })).filter(entry => entry.district && entry.areas.length > 0)
+    return list.length > 0 ? list : DEFAULT_LOCATION_CATALOG
   }
-  return []
+  return DEFAULT_LOCATION_CATALOG
 }
 
 export async function fetchLocationCatalog(): Promise<LocationCatalogEntry[]> {
@@ -143,7 +167,7 @@ export async function fetchLocationCatalog(): Promise<LocationCatalogEntry[]> {
     }
   } catch {}
 
-  return []
+  return DEFAULT_LOCATION_CATALOG
 }
 
 export async function fetchOperatingDistricts(forceRefresh = false): Promise<string[]> {

@@ -572,7 +572,12 @@ export function CustomerDashboardPage({ currentArea, onAreaChange }: { currentAr
                               key={a}
                               type="button"
                               className={`hp-dropdown-item${a === currentArea ? ' selected' : ''}`}
-                              onClick={() => { onAreaChange(a); setUseGps(false); setAreaOpen(false); setStep(2); }}
+                              onClick={() => {
+                                onAreaChange(a);
+                                setUseGps(false);
+                                setAreaOpen(false);
+                                setTimeout(() => setStep(2), 150);
+                              }}
                             >
                               {a}
                               {a === currentArea && <span className="hp-dropdown-check">✓</span>}
@@ -746,20 +751,6 @@ export function CustomerDashboardPage({ currentArea, onAreaChange }: { currentAr
           ))}
         </div>
       </div>
-
-        {/* ── MOBILE BOTTOM NAV ── */}
-        <nav className="hp-mobile-nav">
-          <div className="hp-mobile-nav-inner">
-            <button className="hp-mobile-nav-item active"><Star size={20} /><span>Home</span></button>
-            {isLoggedIn && (
-              <>
-                <button className="hp-mobile-nav-item" onClick={() => navigate('/customer/bookings')}><CheckCircle size={20} /><span>Bookings</span></button>
-                <button className="hp-mobile-nav-item" onClick={() => navigate('/customer/notifications')}><Clock size={20} /><span>Messages</span></button>
-              </>
-            )}
-            <button className="hp-mobile-nav-item" onClick={isLoggedIn ? undefined : openLoginModal}><Users size={20} /><span>Profile</span></button>
-          </div>
-        </nav>
       </div>
     </>
   )

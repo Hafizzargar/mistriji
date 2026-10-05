@@ -51,11 +51,16 @@ async function request<T>(
   }
 
   try {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 35000)
+
     const res = await fetch(`${API_BASE_URL}${endpoint}`, {
       method,
       headers,
       body: body !== undefined ? JSON.stringify(body) : undefined,
+      signal: controller.signal,
     })
+    clearTimeout(timeoutId)
 
     // Try to parse JSON; fall back to null if empty response
     let data: T | null = null
@@ -71,9 +76,10 @@ async function request<T>(
 
     return { data, error: null, status: res.status }
   } catch (err: any) {
+    const isTimeout = err?.name === 'AbortError'
     return {
       data:   null,
-      error:  err?.message || 'Network error — server unreachable.',
+      error:  isTimeout ? 'Request timed out — server is waking up, please try again.' : (err?.message || 'Network error — server unreachable.'),
       status: 0,
     }
   }

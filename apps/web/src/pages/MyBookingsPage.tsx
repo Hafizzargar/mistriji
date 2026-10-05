@@ -144,8 +144,21 @@ export function MyBookingsPage() {
 
   const [phone, setPhone] = useState('')
   const [submittedPhone, setSubmittedPhone] = useState('')
-  const [jobs, setJobs] = useState<Job[]>([])
-  const [loading, setLoading] = useState(false)
+  const [jobs, setJobs] = useState<Job[]>(() => {
+    try {
+      const cached = localStorage.getItem('mistriji_cached_bookings')
+      return cached ? JSON.parse(cached) : []
+    } catch {
+      return []
+    }
+  })
+  const [loading, setLoading] = useState(() => {
+    try {
+      return !localStorage.getItem('mistriji_cached_bookings')
+    } catch {
+      return true
+    }
+  })
   const [userId, setUserId] = useState<string | null>(null)
   const [paymentSettings, setPaymentSettings] = useState<PaymentSettings | null>(null)
 
@@ -184,7 +197,9 @@ export function MyBookingsPage() {
   }, [userId])
 
   async function fetchBookingsByUserId(uid: string) {
-    setLoading(true)
+    if (jobs.length === 0) {
+      setLoading(true)
+    }
     try {
       let { data, error } = await supabase
         .from('jobs')
@@ -198,7 +213,9 @@ export function MyBookingsPage() {
         .order('created_at', { ascending: false })
 
       if (error) throw error
-      setJobs((data ?? []) as unknown as Job[])
+      const fetched = (data ?? []) as unknown as Job[]
+      setJobs(fetched)
+      localStorage.setItem('mistriji_cached_bookings', JSON.stringify(fetched))
     } catch (err: any) {
       toast.error(err.message || 'Failed to fetch requests')
     } finally {

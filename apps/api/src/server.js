@@ -121,13 +121,22 @@ async function isSuperAdminOrAdmin(identifier, req = null, returnFullUser = fals
   return returnFullUser ? null : false
 }
 
-// ─── Blocked Account Status Check ─────────────────────────
+// ─── Blocked Account Status Check (with In-Memory Caching) ─────────────────────────
 const BLOCKED_ACCOUNT_STATUSES = new Set(['suspended', 'disabled', 'deactivated'])
+const accountStatusCache = new Map()
+const CACHE_TTL = 5 * 60 * 1000
 
 async function getAccountStatus(identifier) {
-  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_KEY) return null
+  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_KEY || !identifier) return null
   
   const cleanId = String(identifier).trim().toLowerCase()
+  if (accountStatusCache.has(cleanId)) {
+    const cached = accountStatusCache.get(cleanId)
+    if (Date.now() - cached.timestamp < CACHE_TTL) {
+      return cached.data
+    }
+  }
+
   const cleanPhone = String(identifier).replace(/\D/g, '').slice(-10)
   
   let filter = ''
@@ -147,10 +156,14 @@ async function getAccountStatus(identifier) {
         'Authorization': `Bearer ${process.env.SUPABASE_KEY}`
       }
     })
-    if (!response.ok) return null
+    if (!response.ok) {
+      accountStatusCache.set(cleanId, { data: null, timestamp: Date.now() })
+      return null
+    }
     const users = await response.json()
-    if (Array.isArray(users) && users.length > 0) return users[0]
-    return null
+    const result = (Array.isArray(users) && users.length > 0) ? users[0] : null
+    accountStatusCache.set(cleanId, { data: result, timestamp: Date.now() })
+    return result
   } catch (e) {
     console.error('Account status check error:', e)
     return null
@@ -308,16 +321,11 @@ app.post('/api/otp/send', otpRateLimitMiddleware, async (req, res) => {
 
     const masked = identifier.replace(/(.{2}).+(@.+)/, '$1***$2')
     
-    if (reused) {
-      return res.json({ success: true, reused: true, message: 'OTP already sent.', expiresAt })
+    if (!reused) {
+      sendEmailOTP(identifier, code).catch(err => console.error('Background Email OTP error:', err))
     }
 
-    const result = await sendEmailOTP(identifier, code)
-    if (!result.success) {
-      return res.status(500).json({ error: result.error })
-    }
-
-    return res.json({ success: true, reused: false, message: `OTP sent to ${masked}`, expiresAt })
+    return res.json({ success: true, reused, message: reused ? 'OTP already sent.' : `OTP sent to ${masked}`, expiresAt })
 
   } else if (type === 'phone') {
     const cleanPhone = identifier.replace(/\D/g, '').slice(-10)
@@ -331,24 +339,14 @@ app.post('/api/otp/send', otpRateLimitMiddleware, async (req, res) => {
       return res.status(429).json({ error: otpError })
     }
 
-    if (reused) {
-      return res.json({
-        success: true,
-        reused: true,
-        message: 'OTP already sent.',
-        expiresAt,
-      })
-    }
-
-    const result = await sendSmsOTP(cleanPhone, code)
-    if (!result.success) {
-      return res.status(500).json({ error: result.error })
+    if (!reused) {
+      sendSmsOTP(cleanPhone, code).catch(err => console.error('Background SMS OTP error:', err))
     }
 
     return res.json({
       success: true,
-      reused: false,
-      message: `OTP sent to ******${cleanPhone.slice(-4)}`,
+      reused,
+      message: reused ? 'OTP already sent.' : `OTP sent to ******${cleanPhone.slice(-4)}`,
       expiresAt,
     })
 
