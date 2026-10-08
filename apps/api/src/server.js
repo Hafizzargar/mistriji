@@ -292,8 +292,28 @@ async function otpRateLimitMiddleware(req, res, next) {
   next()
 }
 
+// ─── Admin Authorization Middleware ────────────────────────
+async function requireAdminMiddleware(req, res, next) {
+  const authHeader = req.headers.authorization
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Unauthorized: Missing or invalid token.' })
+  }
+  const token = authHeader.split(' ')[1]
+  try {
+    const decoded = jwt.verify(token, process.env.SUPABASE_JWT_SECRET)
+    const role = decoded.app_metadata?.role || decoded.role
+    if (role !== 'admin' && role !== 'super_admin') {
+      return res.status(403).json({ error: 'Forbidden: Administrator privileges required.' })
+    }
+    req.user = decoded
+    next()
+  } catch (err) {
+    return res.status(401).json({ error: 'Unauthorized: Invalid token.' })
+  }
+}
+
 // Reset rate limits endpoint for admin/dev
-app.post('/api/otp/reset-limits', (req, res) => {
+app.post('/api/otp/reset-limits', requireAdminMiddleware, (req, res) => {
   dailyTotalRequests = []
   ipRequests.clear()
   identifierRequests.clear()
@@ -684,7 +704,7 @@ app.post('/api/otp/update-pin', async (req, res) => {
 })
 
 // ─── Send Admin Welcome / Onboarding Email ─────────────────
-app.post('/api/admin/send-welcome', async (req, res) => {
+app.post('/api/admin/send-welcome', requireAdminMiddleware, async (req, res) => {
   const { email, name, pin, phone, role } = req.body
 
   if (!email || !pin) {
@@ -755,7 +775,7 @@ app.post('/api/otp/resend', otpRateLimitMiddleware, async (req, res) => {
 
 
 // ─── Notify Customer on Worker Assignment ─────────────────
-app.post('/api/notify/customer-assigned', async (req, res) => {
+app.post('/api/notify/customer-assigned', requireAdminMiddleware, async (req, res) => {
   const { customerEmail, customerName, serviceName, jobId, workerName, workerPhone, area, address, preferredTime, trackingUrl } = req.body
 
   if (!customerEmail) {
@@ -855,22 +875,26 @@ app.post('/api/notify/customer-assigned', async (req, res) => {
 // ─── Error Monitoring Endpoint ──────────────────────────────
 app.post('/api/errors/log', async (req, res) => {
   const { message, stack, endpoint, status, browser, appVersion, userId, userRole } = req.body
+
+  const safeMessage = typeof message === 'string' ? message.slice(0, 2000) : 'Unknown client error'
+  const safeStack = typeof stack === 'string' ? stack.slice(0, 5000) : undefined
+
   await logError({
-    message: message || 'Unknown client error',
-    stack,
-    endpoint: endpoint || 'frontend',
+    message: safeMessage,
+    stack: safeStack,
+    endpoint: endpoint ? String(endpoint).slice(0, 255) : 'frontend',
     severity: 'error',
     status: status || 500,
     userId,
     userRole,
-    browser,
-    appVersion
+    browser: browser ? String(browser).slice(0, 255) : undefined,
+    appVersion: appVersion ? String(appVersion).slice(0, 64) : undefined
   })
   res.json({ success: true })
 })
 
 // ─── Admin Session Revocation ─────────────────────────────
-app.post('/api/admin/revoke-session', async (req, res) => {
+app.post('/api/admin/revoke-session', requireAdminMiddleware, async (req, res) => {
   const { userId } = req.body
   if (!userId) return res.status(400).json({ error: 'Missing userId' })
 

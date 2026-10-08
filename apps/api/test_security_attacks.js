@@ -6,7 +6,8 @@
  * 3. Real Payment Amount Tampering (Job price ₹500, attacker sends ₹1 -> Expect 400)
  * 4. Payment verification without auth token (Expect 401)
  * 5. Invalid PIN verification (Expect 401)
- * 6. Error handling stack trace prevention
+ * 6. Unauthenticated Admin endpoint access (Expect 401)
+ * 7. Error handling stack trace prevention
  * ───────────────────────────────────────────────────────────────────────────
  */
 
@@ -76,7 +77,7 @@ async function runTests() {
   const testUserId = 'c0000000-0000-0000-0000-000000000123'
   const testJobUuid = 'd0000000-0000-0000-0000-000000000456'
 
-  // Generate test JWT for testUserId
+  // Generate test JWT for testUserId (customer role, NOT admin)
   const validToken = jwt.sign(
     { sub: testUserId, role: 'authenticated', app_metadata: { role: 'customer' } },
     process.env.SUPABASE_JWT_SECRET,
@@ -167,8 +168,26 @@ async function runTests() {
   })
   assert('Unauthenticated payment verification blocked (401)', res6.status === 401, `Got status ${res6.status}`)
 
-  // ── Test 5: Invalid PIN Verification ──
-  console.log('Test 5: Invalid PIN Verification...')
+  // ── Test 5: Unauthenticated Admin Endpoint Access ──
+  console.log('Test 5: Unauthenticated Admin Endpoint Access...')
+  const res7 = await post('/api/admin/send-welcome', {
+    email: 'hacker@evil.com',
+    pin: '123456'
+  })
+  assert('Unauthenticated admin access blocked (401)', res7.status === 401, `Got status ${res7.status}`)
+
+  // ── Test 6: Non-Admin Customer Access to Admin Endpoint ──
+  console.log('Test 6: Non-Admin Customer Access to Admin Endpoint...')
+  const res8 = await post('/api/admin/send-welcome', {
+    email: 'hacker@evil.com',
+    pin: '123456'
+  }, {
+    'Authorization': `Bearer ${validToken}` // Customer token, not admin
+  })
+  assert('Non-admin customer admin access forbidden (403)', res8.status === 403, `Got status ${res8.status}`)
+
+  // ── Test 7: Invalid PIN Verification ──
+  console.log('Test 7: Invalid PIN Verification...')
   const res4 = await post('/api/otp/verify-pin', {
     identifier: 'test@mistriji.com',
     code: '123456',
@@ -179,8 +198,8 @@ async function runTests() {
   })
   assert('Invalid PIN rejected (401/403/404)', res4.status >= 401, `Got status ${res4.status}`)
 
-  // ── Test 6: Error Handling Stack Trace Prevention ──
-  console.log('Test 6: Error Handling Stack Trace Prevention...')
+  // ── Test 8: Error Handling Stack Trace Prevention ──
+  console.log('Test 8: Error Handling Stack Trace Prevention...')
   const res5 = await post('/api/payments/create-order', {}, {
     'Authorization': `Bearer ${validToken}`
   })
