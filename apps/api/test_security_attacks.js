@@ -3,7 +3,7 @@
  * Tests negative security assertions to verify all implemented hardening:
  * 1. Payment creation without auth token (Expect 401)
  * 2. Payment creation with mismatched user ID / impersonation (Expect 403)
- * 3. Payment job validation & price tampering (Expect 404 / 400)
+ * 3. Real Payment Amount Tampering (Job price ₹500, attacker sends ₹1 -> Expect 400)
  * 4. Invalid PIN verification (Expect 401)
  * 5. Error handling stack trace prevention
  * ───────────────────────────────────────────────────────────────────────────
@@ -19,9 +19,14 @@ require('./src/server')
 
 const http = require('http')
 const jwt = require('jsonwebtoken')
+const { createClient } = require('@supabase/supabase-js')
 
 const API_PORT = process.env.PORT || 3002
 const BASE_URL = `http://localhost:${API_PORT}`
+
+const supabase = (process.env.SUPABASE_URL && (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY))
+  ? createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY)
+  : null
 
 async function runTests() {
   await new Promise(r => setTimeout(r, 1000))
@@ -74,12 +79,24 @@ async function runTests() {
     { expiresIn: '5m' }
   )
 
+  // Setup test job in Supabase if available
+  const testJobId = 'test-job-tamper-' + Date.now()
+  if (supabase) {
+    await supabase.from('jobs').insert({
+      id: testJobId,
+      customer_id: 'user-123',
+      price: 500, // ₹500 (Expected paise: 50000)
+      status: 'requested',
+      area: 'Jammu'
+    }).catch(() => {})
+  }
+
   // ── Test 1: Unauthenticated Payment Order Creation ──
   console.log('Test 1: Unauthenticated Payment Order Creation...')
   const res1 = await post('/api/payments/create-order', {
     amount: 50000,
     userId: 'user-123',
-    jobId: 'job-456'
+    jobId: testJobId
   })
   assert('Unauthenticated payment blocked (401)', res1.status === 401, `Got status ${res1.status}`)
 
@@ -88,22 +105,27 @@ async function runTests() {
   const res2 = await post('/api/payments/create-order', {
     amount: 50000,
     userId: 'victim-user-999', // Mismatched user ID
-    jobId: 'job-456'
+    jobId: testJobId
   }, {
     'Authorization': `Bearer ${validToken}`
   })
   assert('User impersonation blocked (403)', res2.status === 403, `Got status ${res2.status}, body: ${JSON.stringify(res2.body)}`)
 
-  // ── Test 3: Payment Job Validation & Amount Tampering ──
-  console.log('Test 3: Payment Job Validation & Amount Tampering...')
+  // ── Test 3: Real Payment Amount Tampering (Job price ₹500 [50000 paise], attacker sends ₹1 [100 paise]) ──
+  console.log('Test 3: Real Payment Amount Tampering...')
   const res3 = await post('/api/payments/create-order', {
-    amount: 99999,
+    amount: 100, // Tampered amount: 100 paise (₹1) instead of 50000 paise (₹500)
     userId: 'user-123',
-    jobId: 'non-existent-job-id'
+    jobId: testJobId
   }, {
     'Authorization': `Bearer ${validToken}`
   })
-  assert('Non-existent job payment blocked (404/400)', res3.status >= 400, `Got status ${res3.status}, body: ${JSON.stringify(res3.body)}`)
+  assert('Amount tampering rejected (400 Bad Request)', res3.status === 400, `Got status ${res3.status}, body: ${JSON.stringify(res3.body)}`)
+
+  // Cleanup test job
+  if (supabase) {
+    await supabase.from('jobs').delete().eq('id', testJobId).catch(() => {})
+  }
 
   // ── Test 4: Invalid PIN Verification ──
   console.log('Test 4: Invalid PIN Verification...')
