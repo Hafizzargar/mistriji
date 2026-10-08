@@ -15,18 +15,54 @@ const express = require('express')
 const cors = require('cors')
 const jwt = require('jsonwebtoken')
 const cookieParser = require('cookie-parser')
+const crypto = require('crypto')
 const { setOTP, verifyOTP, deleteOTP, consumeOTP } = require('./otpStore')
 const { sendEmailOTP, sendEmailNotification, sendAdminWelcomeEmail } = require('./emailService')
 const { sendSmsOTP, sendSmsNotification } = require('./smsService')
 const { logError } = require('./errorMonitor')
+
+// ─── Secure PIN Hashing Helpers ─────────────────────────────
+function hashPin(pin) {
+  const salt = crypto.randomBytes(16).toString('hex')
+  const hash = crypto.scryptSync(pin, salt, 64).toString('hex')
+  return `${salt}:${hash}`
+}
+
+function verifyPin(pin, storedHashOrPlaintext) {
+  if (!storedHashOrPlaintext) return false
+  if (storedHashOrPlaintext.includes(':')) {
+    const [salt, key] = storedHashOrPlaintext.split(':')
+    try {
+      const hash = crypto.scryptSync(pin, salt, 64).toString('hex')
+      return crypto.timingSafeEqual(Buffer.from(hash, 'hex'), Buffer.from(key, 'hex'))
+    } catch {
+      return false
+    }
+  }
+  return storedHashOrPlaintext === pin
+}
 
 const app = express()
 app.use(cookieParser())
 const PORT = process.env.PORT || 3002
 
 // ─── Middleware ────────────────────────────────────────────
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:3001',
+  'http://localhost:5173',
+  process.env.FRONTEND_URL,
+  process.env.ADMIN_URL
+].filter(Boolean)
+
 app.use(cors({
-  origin: true, // Allow all origins for now so Vercel can connect
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true)
+    if (process.env.NODE_ENV !== 'production' || allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
+      return callback(null, true)
+    }
+    callback(new Error('Not allowed by CORS'))
+  },
   credentials: true,
 }))
 app.use(express.json({
@@ -335,7 +371,7 @@ app.post('/api/otp/send', otpRateLimitMiddleware, async (req, res) => {
     }
 
     // Generate our own OTP for email (managed via otpStore)
-    const { code, error: otpError, reused, expiresAt } = setOTP(identifier, { isAdmin })
+    const { code, error: otpError, reused, expiresAt } = await setOTP(identifier, { isAdmin })
     if (otpError) {
       return res.status(429).json({ error: otpError })
     }
@@ -356,7 +392,7 @@ app.post('/api/otp/send', otpRateLimitMiddleware, async (req, res) => {
     const cleanPhone = rawDigits
 
     // Generate our own OTP for SMS (managed via otpStore)
-    const { code, error: otpError, reused, expiresAt } = setOTP(identifier, { isAdmin })
+    const { code, error: otpError, reused, expiresAt } = await setOTP(identifier, { isAdmin })
     if (otpError) {
       return res.status(429).json({ error: otpError })
     }
@@ -395,7 +431,7 @@ app.post('/api/otp/verify', otpRateLimitMiddleware, async (req, res) => {
   // Verify via our own in-memory otpStore
   // If it's an admin portal login, keep the OTP alive for the next step (PIN verification)
   const isAdminPortal = req.headers['x-admin-portal'] === 'true'
-  const { valid, error } = verifyOTP(identifier, code, isAdminPortal)
+  const { valid, error } = await verifyOTP(identifier, code, isAdminPortal)
 
   if (!valid) {
     console.log(`   ❌ OTP invalid: ${error}`)
@@ -441,7 +477,7 @@ app.post('/api/otp/verify-pin', otpRateLimitMiddleware, async (req, res) => {
   }
 
   // 1. Verify OTP is still valid, but keep it alive until PIN is confirmed
-  const { valid, error } = verifyOTP(identifier, code, true)
+  const { valid, error } = await verifyOTP(identifier, code, true)
   if (!valid) {
     return res.status(401).json({ error: 'OTP expired or invalid. Please request a new one.' })
   }
@@ -471,8 +507,8 @@ app.post('/api/otp/verify-pin', otpRateLimitMiddleware, async (req, res) => {
       if (userRes.ok) {
         const users = await userRes.json()
         const dbUser = users[0]
-        // ── SECURITY GATE: Remove static PIN bypass ──
-        if (dbUser && dbUser.pin_hash && dbUser.pin_hash !== pin) {
+        // ── SECURITY GATE: Verify hashed PIN securely ──
+        if (dbUser && dbUser.pin_hash && !verifyPin(pin, dbUser.pin_hash)) {
            return res.status(401).json({ error: 'Incorrect PIN.' })
         }
       }
@@ -487,7 +523,7 @@ app.post('/api/otp/verify-pin', otpRateLimitMiddleware, async (req, res) => {
     }
 
     // Login successful, atomically consume the OTP
-    if (!consumeOTP(identifier, code)) {
+    if (!(await consumeOTP(identifier, code))) {
       return res.status(401).json({ error: 'OTP has already been used or expired.' })
     }
 
@@ -603,7 +639,7 @@ app.post('/api/otp/update-pin', async (req, res) => {
   }
 
   // 1. Verify OTP
-  const { valid, error } = verifyOTP(identifier, code)
+  const { valid, error } = await verifyOTP(identifier, code)
   if (!valid) {
     return res.status(401).json({ error: error || 'Invalid or expired OTP.' })
   }
@@ -615,6 +651,7 @@ app.post('/api/otp/update-pin', async (req, res) => {
   if (process.env.SUPABASE_URL && process.env.SUPABASE_KEY) {
     try {
       const url = `${process.env.SUPABASE_URL}/rest/v1/users?or=(email.eq.${encodeURIComponent(cleanId)},phone.ilike.*${cleanPhone}*)`
+      const hashedPin = hashPin(cleanPin)
       const updateRes = await fetch(url, {
         method: 'PATCH',
         headers: {
@@ -623,7 +660,7 @@ app.post('/api/otp/update-pin', async (req, res) => {
           'Content-Type': 'application/json',
           'Prefer': 'return=representation'
         },
-        body: JSON.stringify({ pin_hash: cleanPin })
+        body: JSON.stringify({ pin_hash: hashedPin })
       })
 
       if (!updateRes.ok) {
@@ -688,7 +725,7 @@ app.post('/api/otp/resend', otpRateLimitMiddleware, async (req, res) => {
   }
 
   // Generate a new OTP using our internal store
-  const { code, error: otpError } = setOTP(identifier)
+  const { code, error: otpError } = await setOTP(identifier)
   if (otpError) {
     return res.status(429).json({ error: otpError })
   }
@@ -886,7 +923,12 @@ app.use(async (err, req, res, next) => {
     status: err.status || 500,
   })
 
-  res.status(err.status || 500).json({ error: 'Internal Server Error', message: err.message, stack: err.stack })
+  const isProd = process.env.NODE_ENV === 'production'
+  res.status(err.status || 500).json({
+    error: 'Internal Server Error',
+    message: isProd ? 'An unexpected error occurred.' : err.message,
+    ...(isProd ? {} : { stack: err.stack })
+  })
 })
 
 // ─── Start Server ─────────────────────────────────────────

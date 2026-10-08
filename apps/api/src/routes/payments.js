@@ -1,6 +1,7 @@
 const express = require('express');
 const Razorpay = require('razorpay');
 const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
 const { createClient } = require('@supabase/supabase-js');
 const { sendEmailNotification } = require('../emailService');
 
@@ -78,10 +79,42 @@ async function sendPaymentEmails(amount, paymentId, userEmail, userName) {
 
 // 1. Create Order Server-Side
 router.post('/create-order', async (req, res) => {
+  // ── SECURITY GATE: Authentication & Authorization ──
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Unauthorized: Missing or invalid token.' });
+  }
+  const token = authHeader.split(' ')[1];
+  let decodedToken;
+  try {
+    decodedToken = jwt.verify(token, process.env.SUPABASE_JWT_SECRET);
+  } catch (err) {
+    return res.status(401).json({ error: 'Unauthorized: Invalid token.' });
+  }
+
+  const authenticatedUserId = decodedToken.sub;
+  const userRole = decodedToken.app_metadata?.role || decodedToken.role;
+
   const { amount, currency, userId, jobId, workerId } = req.body;
 
   if (!amount || !userId) {
     return res.status(400).json({ error: 'Amount and userId are required.' });
+  }
+
+  // Ensure requesting user matches userId (or is admin/super_admin)
+  if (userRole !== 'admin' && userRole !== 'super_admin' && authenticatedUserId !== userId) {
+    return res.status(403).json({ error: 'Forbidden: Cannot create order for another user.' });
+  }
+
+  // If jobId is provided, verify job ownership against database
+  if (jobId) {
+    const { data: jobData, error: jobError } = await supabase.from('jobs').select('id, customer_id, price').eq('id', jobId).single();
+    if (jobError || !jobData) {
+      return res.status(404).json({ error: 'Associated job not found.' });
+    }
+    if (userRole !== 'admin' && userRole !== 'super_admin' && jobData.customer_id !== authenticatedUserId) {
+      return res.status(403).json({ error: 'Forbidden: Job does not belong to user.' });
+    }
   }
 
   try {
