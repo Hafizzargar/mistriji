@@ -206,6 +206,23 @@ router.post('/create-order', async (req, res) => {
 
 // 2. Verify Payment Signature
 router.post('/verify', async (req, res) => {
+  // ── SECURITY GATE: Mandatory Authentication ──
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Unauthorized: Missing or invalid token.' });
+  }
+
+  let authenticatedUserId;
+  let userRole;
+  try {
+    const token = authHeader.split(' ')[1];
+    const decodedToken = jwt.verify(token, process.env.SUPABASE_JWT_SECRET);
+    authenticatedUserId = decodedToken.sub;
+    userRole = decodedToken.app_metadata?.role || decodedToken.role;
+  } catch (err) {
+    return res.status(401).json({ error: 'Unauthorized: Invalid token.' });
+  }
+
   const { razorpay_order_id, razorpay_payment_id, razorpay_signature, userEmail, userName } = req.body;
 
   if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
@@ -213,22 +230,12 @@ router.post('/verify', async (req, res) => {
   }
 
   try {
-    // Optional Authorization check for payment verification
-    const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      try {
-        const token = authHeader.split(' ')[1];
-        const decodedToken = jwt.verify(token, process.env.SUPABASE_JWT_SECRET);
-        const authenticatedUserId = decodedToken.sub;
-        const userRole = decodedToken.app_metadata?.role || decodedToken.role;
-
-        const { data: payRecord } = await supabase.from('payments').select('user_id').eq('order_id', razorpay_order_id).maybeSingle();
-        if (payRecord && userRole !== 'admin' && userRole !== 'super_admin' && payRecord.user_id !== authenticatedUserId) {
-          return res.status(403).json({ error: 'Forbidden: Payment does not belong to user.' });
-        }
-      } catch (err) {
-        return res.status(401).json({ error: 'Unauthorized: Invalid token.' });
-      }
+    const { data: payRecord } = await supabase.from('payments').select('user_id').eq('order_id', razorpay_order_id).maybeSingle();
+    if (!payRecord) {
+      return res.status(404).json({ error: 'Payment order not found.' });
+    }
+    if (userRole !== 'admin' && userRole !== 'super_admin' && payRecord.user_id !== authenticatedUserId) {
+      return res.status(403).json({ error: 'Forbidden: Payment does not belong to user.' });
     }
 
     const hmac = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET);
