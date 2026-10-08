@@ -3,7 +3,7 @@
  * Tests negative security assertions to verify all implemented hardening:
  * 1. Payment creation without auth token (Expect 401)
  * 2. Payment creation with mismatched user ID / impersonation (Expect 403)
- * 3. Payment amount price tampering (Expect 400 / 404 if job not found)
+ * 3. Payment job validation & price tampering (Expect 404 / 400)
  * 4. Invalid PIN verification (Expect 401)
  * 5. Error handling stack trace prevention
  * ───────────────────────────────────────────────────────────────────────────
@@ -94,9 +94,20 @@ async function runTests() {
   })
   assert('User impersonation blocked (403)', res2.status === 403, `Got status ${res2.status}, body: ${JSON.stringify(res2.body)}`)
 
-  // ── Test 3: Invalid PIN Verification ──
-  console.log('Test 3: Invalid PIN Verification...')
-  const res3 = await post('/api/otp/verify-pin', {
+  // ── Test 3: Payment Job Validation & Amount Tampering ──
+  console.log('Test 3: Payment Job Validation & Amount Tampering...')
+  const res3 = await post('/api/payments/create-order', {
+    amount: 99999,
+    userId: 'user-123',
+    jobId: 'non-existent-job-id'
+  }, {
+    'Authorization': `Bearer ${validToken}`
+  })
+  assert('Non-existent job payment blocked (404/400)', res3.status >= 400, `Got status ${res3.status}, body: ${JSON.stringify(res3.body)}`)
+
+  // ── Test 4: Invalid PIN Verification ──
+  console.log('Test 4: Invalid PIN Verification...')
+  const res4 = await post('/api/otp/verify-pin', {
     identifier: 'test@mistriji.com',
     code: '123456',
     pin: '000000',
@@ -104,14 +115,14 @@ async function runTests() {
   }, {
     'x-admin-portal': 'true'
   })
-  assert('Invalid PIN rejected (401/403/404)', res3.status >= 401, `Got status ${res3.status}`)
+  assert('Invalid PIN rejected (401/403/404)', res4.status >= 401, `Got status ${res4.status}`)
 
-  // ── Test 4: Error Handling Stack Trace Prevention ──
-  console.log('Test 4: Error Handling Stack Trace Prevention...')
-  const res4 = await post('/api/payments/create-order', {}, {
+  // ── Test 5: Error Handling Stack Trace Prevention ──
+  console.log('Test 5: Error Handling Stack Trace Prevention...')
+  const res5 = await post('/api/payments/create-order', {}, {
     'Authorization': `Bearer ${validToken}`
   })
-  const leaksStack = typeof res4.body === 'object' && res4.body.stack !== undefined && process.env.NODE_ENV === 'production'
+  const leaksStack = typeof res5.body === 'object' && res5.body.stack !== undefined && process.env.NODE_ENV === 'production'
   assert('No internal stack trace leaked in response', !leaksStack, 'Stack trace was exposed in response body')
 
   console.log(`\n📊 Test Summary: ${passed} Passed, ${failed} Failed.\n`)

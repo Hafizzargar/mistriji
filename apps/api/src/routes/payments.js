@@ -213,6 +213,24 @@ router.post('/verify', async (req, res) => {
   }
 
   try {
+    // Optional Authorization check for payment verification
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        const token = authHeader.split(' ')[1];
+        const decodedToken = jwt.verify(token, process.env.SUPABASE_JWT_SECRET);
+        const authenticatedUserId = decodedToken.sub;
+        const userRole = decodedToken.app_metadata?.role || decodedToken.role;
+
+        const { data: payRecord } = await supabase.from('payments').select('user_id').eq('order_id', razorpay_order_id).maybeSingle();
+        if (payRecord && userRole !== 'admin' && userRole !== 'super_admin' && payRecord.user_id !== authenticatedUserId) {
+          return res.status(403).json({ error: 'Forbidden: Payment does not belong to user.' });
+        }
+      } catch (err) {
+        return res.status(401).json({ error: 'Unauthorized: Invalid token.' });
+      }
+    }
+
     const hmac = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET);
     hmac.update(razorpay_order_id + "|" + razorpay_payment_id);
     

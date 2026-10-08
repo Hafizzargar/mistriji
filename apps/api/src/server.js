@@ -39,22 +39,7 @@ function verifyPin(pin, storedHashOrPlaintext, userId = null) {
       return false
     }
   }
-  // Legacy plaintext check with automatic background migration to scrypt hash
-  if (storedHashOrPlaintext === pin) {
-    if (userId && process.env.SUPABASE_URL && process.env.SUPABASE_KEY) {
-      const newHash = hashPin(pin)
-      fetch(`${process.env.SUPABASE_URL}/rest/v1/users?id=eq.${userId}`, {
-        method: 'PATCH',
-        headers: {
-          'apikey': process.env.SUPABASE_KEY,
-          'Authorization': `Bearer ${process.env.SUPABASE_KEY}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ pin_hash: newHash })
-      }).catch(err => console.error('Background PIN migration error:', err))
-    }
-    return true
-  }
+  // Zero plaintext fallback: reject unhashed PINs
   return false
 }
 
