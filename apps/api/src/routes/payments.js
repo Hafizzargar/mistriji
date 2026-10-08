@@ -106,7 +106,7 @@ router.post('/create-order', async (req, res) => {
     return res.status(403).json({ error: 'Forbidden: Cannot create order for another user.' });
   }
 
-  // If jobId is provided, verify job ownership against database
+  // If jobId is provided, verify job ownership and amount integrity against database
   if (jobId) {
     const { data: jobData, error: jobError } = await supabase.from('jobs').select('id, customer_id, price').eq('id', jobId).single();
     if (jobError || !jobData) {
@@ -114,6 +114,15 @@ router.post('/create-order', async (req, res) => {
     }
     if (userRole !== 'admin' && userRole !== 'super_admin' && jobData.customer_id !== authenticatedUserId) {
       return res.status(403).json({ error: 'Forbidden: Job does not belong to user.' });
+    }
+    // Amount integrity check (jobData.price is in Rupees, amount is in paise)
+    if (jobData.price !== null && jobData.price !== undefined) {
+      const expectedPaise = Math.round(Number(jobData.price) * 100);
+      if (Number(amount) !== expectedPaise) {
+        return res.status(400).json({
+          error: `Invalid payment amount. Expected ₹${jobData.price} (${expectedPaise} paise), but received ${amount} paise.`
+        });
+      }
     }
   }
 

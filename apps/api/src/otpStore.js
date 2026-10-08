@@ -1,7 +1,7 @@
 /**
  * ─── Hardened OTP Store ─────────────────────────────────────
  * Persistent OTP store supporting multi-instance deployments (via Supabase)
- * with CSPRNG (crypto.randomInt) and automatic expiry.
+ * with CSPRNG (crypto.randomInt), SHA-256 OTP hashing, and automatic expiry.
  */
 
 const { createClient } = require('@supabase/supabase-js')
@@ -24,6 +24,10 @@ function generateOTP() {
   return String(crypto.randomInt(100000, 1000000))
 }
 
+function hashOtp(code) {
+  return crypto.createHash('sha256').update(String(code).trim()).digest('hex')
+}
+
 /**
  * Store an OTP for a given identifier (phone or email).
  */
@@ -32,6 +36,7 @@ async function setOTP(identifier, options = {}) {
   const expiryMs = options.isAdmin ? 60 * 1000 : OTP_EXPIRY_MS
   const expiresAt = Date.now() + expiryMs
   const code = generateOTP()
+  const codeHash = hashOtp(code)
   const isAdmin = options.isAdmin || false
 
   if (supabase) {
@@ -44,15 +49,21 @@ async function setOTP(identifier, options = {}) {
         .maybeSingle()
 
       if (existing && Date.now() < new Date(existing.expires_at).getTime()) {
-        return { code: existing.code, error: null, reused: true, expiresAt: new Date(existing.expires_at).getTime() }
+        // We cannot recover original code if hashed, but if reused we can generate a new one or keep existing expiry
+        // To support seamless resend/reuse without storing plaintext, we can generate a fresh code or check creation time.
+        // For security, let's upsert a fresh code or return reuse indication if within 30s.
+        if (existing.created_at && (Date.now() - new Date(existing.created_at).getTime() < 30000)) {
+          // If recently sent, return cached indication (the client already received the code)
+          return { code: null, error: null, reused: true, expiresAt: new Date(existing.expires_at).getTime() }
+        }
       }
 
-      // Upsert new OTP
+      // Upsert new OTP (storing only SHA-256 hash, NEVER plaintext code)
       const { error: upsertErr } = await supabase
         .from('otp_store')
         .upsert({
           identifier: key,
-          code,
+          code_hash: codeHash,
           expires_at: new Date(expiresAt).toISOString(),
           attempts: 0,
           is_admin: isAdmin
@@ -68,27 +79,28 @@ async function setOTP(identifier, options = {}) {
     }
   }
 
-  // Fallback to memory store
+  // Fallback to memory store (storing codeHash)
   const existingMem = memoryStore.get(key)
-  if (existingMem && Date.now() < existingMem.expiresAt) {
-    return { code: existingMem.code, error: null, reused: true, expiresAt: existingMem.expiresAt }
+  if (existingMem && Date.now() < existingMem.expiresAt && (Date.now() - existingMem.createdAt < 30000)) {
+    return { code: null, error: null, reused: true, expiresAt: existingMem.expiresAt }
   }
 
-  memoryStore.set(key, { code, expiresAt, attempts: 0, isAdmin })
+  memoryStore.set(key, { codeHash, createdAt: Date.now(), expiresAt, attempts: 0, isAdmin })
   setTimeout(() => {
     const entry = memoryStore.get(key)
-    if (entry && entry.code === code) memoryStore.delete(key)
+    if (entry && entry.codeHash === codeHash) memoryStore.delete(key)
   }, expiryMs + 1000)
 
   return { code, error: null, reused: false, expiresAt }
 }
 
 /**
- * Verify an OTP for a given identifier.
+ * Verify an OTP for a given identifier by comparing SHA-256 hashes.
  */
 async function verifyOTP(identifier, code, keepAlive = false) {
   const key = identifier.toLowerCase().trim()
   const cleanCode = String(code).trim()
+  const codeHash = hashOtp(cleanCode)
 
   if (supabase) {
     try {
@@ -112,8 +124,8 @@ async function verifyOTP(identifier, code, keepAlive = false) {
         return { valid: false, error: 'Too many wrong attempts. Please request a new OTP.' }
       }
 
-      if (entry.code !== cleanCode) {
-        const newAttempts = entry.attempts + 1
+      if (entry.code_hash !== codeHash) {
+        const newAttempts = (entry.attempts || 0) + 1
         await supabase.from('otp_store').update({ attempts: newAttempts }).eq('identifier', key)
         return { valid: false, error: `Invalid OTP. ${MAX_ATTEMPTS - newAttempts} attempts remaining.` }
       }
@@ -139,7 +151,7 @@ async function verifyOTP(identifier, code, keepAlive = false) {
     memoryStore.delete(key)
     return { valid: false, error: 'Too many wrong attempts. Please request a new OTP.' }
   }
-  if (entry.code !== cleanCode) {
+  if (entry.codeHash !== codeHash) {
     entry.attempts++
     return { valid: false, error: `Invalid OTP. ${MAX_ATTEMPTS - entry.attempts} attempts remaining.` }
   }
@@ -158,6 +170,7 @@ async function deleteOTP(identifier) {
 async function consumeOTP(identifier, code) {
   const key = identifier.toLowerCase().trim()
   const cleanCode = String(code).trim()
+  const codeHash = hashOtp(cleanCode)
 
   if (supabase) {
     try {
@@ -167,7 +180,7 @@ async function consumeOTP(identifier, code) {
         .eq('identifier', key)
         .maybeSingle()
 
-      if (entry && entry.code === cleanCode) {
+      if (entry && entry.code_hash === codeHash) {
         await supabase.from('otp_store').delete().eq('identifier', key)
         return true
       }
@@ -178,7 +191,7 @@ async function consumeOTP(identifier, code) {
   }
 
   const entry = memoryStore.get(key)
-  if (entry && entry.code === cleanCode) {
+  if (entry && entry.codeHash === codeHash) {
     memoryStore.delete(key)
     return true
   }

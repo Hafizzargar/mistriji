@@ -28,7 +28,7 @@ function hashPin(pin) {
   return `${salt}:${hash}`
 }
 
-function verifyPin(pin, storedHashOrPlaintext) {
+function verifyPin(pin, storedHashOrPlaintext, userId = null) {
   if (!storedHashOrPlaintext) return false
   if (storedHashOrPlaintext.includes(':')) {
     const [salt, key] = storedHashOrPlaintext.split(':')
@@ -39,7 +39,23 @@ function verifyPin(pin, storedHashOrPlaintext) {
       return false
     }
   }
-  return storedHashOrPlaintext === pin
+  // Legacy plaintext check with automatic background migration to scrypt hash
+  if (storedHashOrPlaintext === pin) {
+    if (userId && process.env.SUPABASE_URL && process.env.SUPABASE_KEY) {
+      const newHash = hashPin(pin)
+      fetch(`${process.env.SUPABASE_URL}/rest/v1/users?id=eq.${userId}`, {
+        method: 'PATCH',
+        headers: {
+          'apikey': process.env.SUPABASE_KEY,
+          'Authorization': `Bearer ${process.env.SUPABASE_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ pin_hash: newHash })
+      }).catch(err => console.error('Background PIN migration error:', err))
+    }
+    return true
+  }
+  return false
 }
 
 const app = express()
@@ -508,7 +524,7 @@ app.post('/api/otp/verify-pin', otpRateLimitMiddleware, async (req, res) => {
         const users = await userRes.json()
         const dbUser = users[0]
         // ── SECURITY GATE: Verify hashed PIN securely ──
-        if (dbUser && dbUser.pin_hash && !verifyPin(pin, dbUser.pin_hash)) {
+        if (dbUser && dbUser.pin_hash && !verifyPin(pin, dbUser.pin_hash, dbUser.id)) {
            return res.status(401).json({ error: 'Incorrect PIN.' })
         }
       }
